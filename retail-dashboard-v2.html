@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Operasional — PT. Makmur Sejahtera Retail</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; margin: 0; }
+
+  /* SIDEBAR */
+  #sidebar { width: 220px; min-height: 100vh; background: #1e293b; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; z-index: 100; border-right: 1px solid rgba(255,255,255,0.06); }
+  .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 20px; cursor: pointer; color: #94a3b8; font-size: 14px; font-weight: 500; transition: all 0.15s; border-left: 3px solid transparent; text-decoration: none; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
+  .nav-item.active { background: rgba(99,102,241,0.15); color: #818cf8; border-left-color: #6366f1; }
+  .nav-icon { width: 20px; height: 20px; flex-shrink: 0; opacity: 0.8; }
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  /* MAIN CONTENT */
+  #main { margin-left: 220px; min-height: 100vh; background: #f8fafc; }
+  #topbar { background: white; border-bottom: 1px solid #e2e8f0; padding: 0 28px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  #content-area { padding: 28px; }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* KPI CARDS */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; position: relative; overflow: hidden; }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 14px 14px 0 0; }
+  .kpi-card.blue::before { background: linear-gradient(90deg, #6366f1, #818cf8); }
+  .kpi-card.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+  .kpi-card.amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .kpi-card.red::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+  .kpi-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .kpi-value { font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 4px; }
+  .kpi-label { font-size: 12px; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-trend { font-size: 12px; font-weight: 600; margin-top: 8px; }
+  .trend-up { color: #10b981; }
+  .trend-down { color: #ef4444; }
+
+  /* SECTION CARDS */
+  .card { background: white; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #f1f5f9; }
+  .card-header { padding: 18px 22px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 15px; font-weight: 700; color: #0f172a; }
+  .card-body { padding: 20px 22px; }
+  .card-subtitle { font-size: 12px; color: #94a3b8; font-weight: 500; }
+
+  /* TABLES */
+  .tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #f1f5f9; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #f8fafc; color: #475569; font-weight: 600; padding: 11px 14px; text-align: left; white-space: nowrap; border-bottom: 1px solid #e2e8f0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; user-select: none; }
+  thead th:hover { background: #f1f5f9; }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid #f8fafc; color: #334155; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fafbff; }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-green  { background: #dcfce7; color: #16a34a; }
+  .badge-yellow { background: #fef9c3; color: #a16207; }
+  .badge-red    { background: #fee2e2; color: #dc2626; }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-teal   { background: #ccfbf1; color: #0f766e; }
+  .badge-purple { background: #ede9fe; color: #7c3aed; }
+  .badge-gray   { background: #f1f5f9; color: #64748b; }
+
+  /* ALERTS */
+  .alert-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 10px; border: 1px solid; margin-bottom: 8px; }
+  .alert-kritis { background: #fff1f2; border-color: #fecdd3; }
+  .alert-perhatian { background: #fffbeb; border-color: #fde68a; }
+  .alert-dot-red { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; flex-shrink: 0; margin-top: 4px; }
+  .alert-dot-yellow { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; margin-top: 4px; }
+
+  /* HEATMAP */
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap-table { border-collapse: separate; border-spacing: 3px; font-size: 12px; }
+  .hm-cell { width: 44px; height: 34px; border-radius: 5px; text-align: center; font-weight: 600; vertical-align: middle; }
+  .hm-head { background: transparent; color: #64748b; font-size: 11px; font-weight: 600; padding: 0 4px; text-align: center; }
+  .hm-label { color: #334155; font-weight: 500; white-space: nowrap; padding-right: 10px; text-align: right; font-size: 12px; }
+  .hm-90 { background:#dcfce7; color:#15803d; }
+  .hm-75 { background:#fef9c3; color:#a16207; }
+  .hm-0  { background:#fee2e2; color:#dc2626; }
+  .hm-na { background:#f1f5f9; color:#94a3b8; }
+
+  /* PROGRESS BAR */
+  .prog-bar { height: 6px; border-radius: 3px; background: #f1f5f9; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+
+  /* LOG FEED */
+  .log-item { padding: 14px 18px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
+  .log-kritis    { border-left: 4px solid #ef4444; background: #fff9f9; }
+  .log-perhatian { border-left: 4px solid #f59e0b; background: #fffef9; }
+  .log-normal    { border-left: 4px solid #10b981; background: #f0fdf4; }
+
+  /* STATUS CHIPS inline */
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+  /* MISC */
+  .section-header { margin-bottom: 20px; }
+  .section-title { font-size: 20px; font-weight: 800; color: #0f172a; }
+  .section-sub { font-size: 13px; color: #64748b; margin-top: 2px; }
+  .divider { border: none; border-top: 1px solid #f1f5f9; margin: 0; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* FILTER ROW */
+  .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .filter-row select, .filter-row input[type="date"] { font-size: 13px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 12px; background: white; color: #334155; outline: none; cursor: pointer; }
+  .filter-row select:focus, .filter-row input[type="date"]:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+  .btn-refresh { font-size: 13px; font-weight: 600; background: #6366f1; color: white; border: none; border-radius: 8px; padding: 7px 16px; cursor: pointer; }
+  .btn-refresh:hover { background: #4f46e5; }
+
+  /* STAT ROW */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-box { background: #f8fafc; border-radius: 10px; padding: 14px 16px; border: 1px solid #f1f5f9; text-align: center; }
+  .stat-box .val { font-size: 22px; font-weight: 800; color: #0f172a; }
+  .stat-box .lbl { font-size: 11px; color: #64748b; font-weight: 500; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* TIMESTAMP */
+  .ts { font-size: 11px; color: #94a3b8; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #f8fafc; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+  /* AREA SUMMARY TABLE special */
+  .area-score { font-weight: 700; font-size: 15px; }
+  .cell-green { background: #f0fdf4; color: #15803d; font-weight: 600; }
+  .cell-yellow { background: #fefce8; color: #a16207; font-weight: 600; }
+  .cell-red { background: #fff1f2; color: #dc2626; font-weight: 700; }
+
+  @media (max-width: 1280px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== KONFIGURASI ===== -->
+<script>
+const CONFIG = { nama_perusahaan: "PT. Makmur Sejahtera Retail", google_sheets: { master_toko: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=0&single=true&output=csv", kunjungan: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=750018040&single=true&output=csv", daily_task: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=612150226&single=true&output=csv", setoran: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=758218194&single=true&output=csv", absensi: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=1730016363&single=true&output=csv", log_harian: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=1912533535&single=true&output=csv", checklist_kunjungan: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=459532689&single=true&output=csv", sku_sampling: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqCdUN9flDg-TpmJBmGpVhfFWL5yBmeAOOe1ZiQyxKt1S6ejPxj8995KMwvNWcdz3BEnblwdR4D8vx/pub?gid=395910339&single=true&output=csv" }, // ... };
+  batas_jam_masuk:        "08:00",
+  batas_jam_setoran:      "15:00",
+  target_task_completion: 90,
+  refresh_interval_ms:    300000
+};
+</script>
+
+<!-- ===== DEMO DATA ===== -->
+<script>
+const DEMO = {
+  master_toko: [
+    { kode_toko:"JKT-001", nama_toko:"Toko Senen", area:"Jabodetabek", kota:"Jakarta Pusat", operation_manager:"Budi Santoso", arco:"Rina Wati", store_leader:"Agus Pramono", status_toko:"Aktif" },
+    { kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", area:"Jabodetabek", kota:"Jakarta Pusat", operation_manager:"Budi Santoso", arco:"Rina Wati", store_leader:"Dewi Lestari", status_toko:"Aktif" },
+    { kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", area:"Jabodetabek", kota:"Jakarta Utara", operation_manager:"Budi Santoso", arco:"Hendra Gunawan", store_leader:"Fajar Nugroho", status_toko:"Aktif" },
+    { kode_toko:"JKT-004", nama_toko:"Toko Bekasi Barat", area:"Jabodetabek", kota:"Bekasi", operation_manager:"Budi Santoso", arco:"Hendra Gunawan", store_leader:"Siti Rahayu", status_toko:"Aktif" },
+    { kode_toko:"JKT-005", nama_toko:"Toko Depok Timur", area:"Jabodetabek", kota:"Depok", operation_manager:"Budi Santoso", arco:"Rina Wati", store_leader:"Wahyu Setiawan", status_toko:"Aktif" },
+    { kode_toko:"JKT-006", nama_toko:"Toko Tangerang Selatan", area:"Jabodetabek", kota:"Tangerang", operation_manager:"Budi Santoso", arco:"Hendra Gunawan", store_leader:"Maya Andriani", status_toko:"Aktif" },
+    { kode_toko:"JKT-007", nama_toko:"Toko Bogor Tengah", area:"Jabodetabek", kota:"Bogor", operation_manager:"Budi Santoso", arco:"Rina Wati", store_leader:"Rizki Pratama", status_toko:"Aktif" },
+    { kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", area:"Jawa Barat", kota:"Bandung", operation_manager:"Sari Dewi", arco:"Anton Kurniawan", store_leader:"Lina Marlina", status_toko:"Aktif" },
+    { kode_toko:"JBR-002", nama_toko:"Toko Cimahi", area:"Jawa Barat", kota:"Cimahi", operation_manager:"Sari Dewi", arco:"Anton Kurniawan", store_leader:"Dendi Suryana", status_toko:"Aktif" },
+    { kode_toko:"JBR-003", nama_toko:"Toko Sukabumi", area:"Jawa Barat", kota:"Sukabumi", operation_manager:"Sari Dewi", arco:"Putri Handayani", store_leader:"Eko Santoso", status_toko:"Aktif" },
+    { kode_toko:"JBR-004", nama_toko:"Toko Cirebon Utara", area:"Jawa Barat", kota:"Cirebon", operation_manager:"Sari Dewi", arco:"Putri Handayani", store_leader:"Neni Apriani", status_toko:"Aktif" },
+    { kode_toko:"JBR-005", nama_toko:"Toko Karawang", area:"Jawa Barat", kota:"Karawang", operation_manager:"Sari Dewi", arco:"Anton Kurniawan", store_leader:"Asep Suhendar", status_toko:"Aktif" },
+    { kode_toko:"JBR-006", nama_toko:"Toko Purwakarta", area:"Jawa Barat", kota:"Purwakarta", operation_manager:"Sari Dewi", arco:"Putri Handayani", store_leader:"Yanti Kusuma", status_toko:"Aktif" },
+    { kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", area:"Jawa Tengah", kota:"Semarang", operation_manager:"Dian Pratiwi", arco:"Bambang Irawan", store_leader:"Tri Wahyono", status_toko:"Aktif" },
+    { kode_toko:"JTG-002", nama_toko:"Toko Ungaran", area:"Jawa Tengah", kota:"Semarang", operation_manager:"Dian Pratiwi", arco:"Bambang Irawan", store_leader:"Siti Nur", status_toko:"Aktif" },
+    { kode_toko:"JTG-003", nama_toko:"Toko Solo Baru", area:"Jawa Tengah", kota:"Solo", operation_manager:"Dian Pratiwi", arco:"Rini Supriatin", store_leader:"Joko Widiarso", status_toko:"Aktif" },
+    { kode_toko:"JTG-004", nama_toko:"Toko Yogyakarta Kota", area:"Jawa Tengah", kota:"Yogyakarta", operation_manager:"Dian Pratiwi", arco:"Rini Supriatin", store_leader:"Haryanto", status_toko:"Aktif" },
+    { kode_toko:"JTG-005", nama_toko:"Toko Magelang", area:"Jawa Tengah", kota:"Magelang", operation_manager:"Dian Pratiwi", arco:"Bambang Irawan", store_leader:"Dwi Rahayu", status_toko:"Aktif" },
+    { kode_toko:"JTG-006", nama_toko:"Toko Purwokerto", area:"Jawa Tengah", kota:"Purwokerto", operation_manager:"Dian Pratiwi", arco:"Rini Supriatin", store_leader:"Gunawan", status_toko:"Aktif" },
+    { kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", area:"Jawa Timur", kota:"Surabaya", operation_manager:"Hadi Kusuma", arco:"Wati Soekarno", store_leader:"Prio Utomo", status_toko:"Aktif" },
+    { kode_toko:"JTM-002", nama_toko:"Toko Sidoarjo", area:"Jawa Timur", kota:"Sidoarjo", operation_manager:"Hadi Kusuma", arco:"Wati Soekarno", store_leader:"Lilik Purwanto", status_toko:"Aktif" },
+    { kode_toko:"JTM-003", nama_toko:"Toko Malang Kota", area:"Jawa Timur", kota:"Malang", operation_manager:"Hadi Kusuma", arco:"Yusuf Hakim", store_leader:"Endah Sulistyowati", status_toko:"Aktif" },
+    { kode_toko:"JTM-004", nama_toko:"Toko Gresik", area:"Jawa Timur", kota:"Gresik", operation_manager:"Hadi Kusuma", arco:"Wati Soekarno", store_leader:"Ahmad Fauzi", status_toko:"Aktif" },
+    { kode_toko:"JTM-005", nama_toko:"Toko Mojokerto", area:"Jawa Timur", kota:"Mojokerto", operation_manager:"Hadi Kusuma", arco:"Yusuf Hakim", store_leader:"Catur Wulandari", status_toko:"Aktif" },
+  ],
+  kunjungan: [
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Rina Wati", jam_datang:"09:15", jam_pergi:"11:30", temuan:"Display produk rapi, stok aman", tindak_lanjut:"Tidak ada", status:"Selesai" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", visitor_role:"Operation Manager (OM)", nama_visitor:"Budi Santoso", jam_datang:"10:00", jam_pergi:"12:15", temuan:"Toilet perlu diperbaiki", tindak_lanjut:"Hubungi teknisi hari ini", status:"Selesai" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Anton Kurniawan", jam_datang:"08:45", jam_pergi:"10:30", temuan:"Kekurangan pramuniaga shift pagi", tindak_lanjut:"Koordinasi HRD minggu ini", status:"Selesai" },
+    { tanggal:"2026-05-18", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Rina Wati", jam_datang:"09:00", jam_pergi:"11:00", temuan:"Kondisi toko baik, omset sesuai target", tindak_lanjut:"Tidak ada", status:"Selesai" },
+    { tanggal:"2026-05-18", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", visitor_role:"Operation Manager (OM)", nama_visitor:"Dian Pratiwi", jam_datang:"13:00", jam_pergi:"15:00", temuan:"AC di area kasir mati", tindak_lanjut:"Servis AC dijadwalkan besok", status:"Selesai" },
+    { tanggal:"2026-05-18", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Wati Soekarno", jam_datang:"09:30", jam_pergi:"11:30", temuan:"Stok fast moving menipis", tindak_lanjut:"PO sudah dikirim", status:"Selesai" },
+    { tanggal:"2026-05-17", kode_toko:"JBR-003", nama_toko:"Toko Sukabumi", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Putri Handayani", jam_datang:"10:00", jam_pergi:"12:00", temuan:"Toko bersih, karyawan ramah", tindak_lanjut:"Tidak ada", status:"Selesai" },
+    { tanggal:"2026-05-17", kode_toko:"JKT-005", nama_toko:"Toko Depok Timur", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Rina Wati", jam_datang:"14:00", jam_pergi:"16:00", temuan:"Kebocoran di gudang", tindak_lanjut:"Laporkan ke maintenance", status:"Selesai" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-002", nama_toko:"Toko Sidoarjo", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Wati Soekarno", jam_datang:"09:00", jam_pergi:"11:00", temuan:"Planogram produk baru belum dipasang sesuai instruksi pusat", tindak_lanjut:"SL diminta update display sebelum EOD", status:"Selesai" },
+    { tanggal:"2026-05-18", kode_toko:"JTG-004", nama_toko:"Toko Yogyakarta Kota", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Rini Supriatin", jam_datang:"10:30", jam_pergi:"12:30", temuan:"Toko bersih dan tertib, absensi 100%", tindak_lanjut:"Tidak ada", status:"Selesai" },
+    { tanggal:"2026-05-20", kode_toko:"JKT-004", nama_toko:"Toko Bekasi Barat", visitor_role:"Area Coordinator (ARCO)", nama_visitor:"Hendra Gunawan", jam_datang:"", jam_pergi:"", temuan:"", tindak_lanjut:"", status:"Dijadwalkan" },
+    { tanggal:"2026-05-20", kode_toko:"JBR-002", nama_toko:"Toko Cimahi", visitor_role:"Operation Manager (OM)", nama_visitor:"Sari Dewi", jam_datang:"", jam_pergi:"", temuan:"", tindak_lanjut:"", status:"Dijadwalkan" },
+  ],
+  daily_task: [
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", kategori_task:"Opening", nama_task:"Buka toko tepat waktu", status:"Selesai", input_oleh:"Agus Pramono" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", kategori_task:"Display", nama_task:"Rapikan display produk baru", status:"Selesai", input_oleh:"Agus Pramono" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", kategori_task:"Kebersihan", nama_task:"Pel lantai area kasir", status:"Selesai", input_oleh:"Agus Pramono" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", kategori_task:"Stok", nama_task:"Cek ketersediaan stok fast moving", status:"Selesai", input_oleh:"Agus Pramono" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", kategori_task:"Closing", nama_task:"Tutup kasir & rekap penjualan", status:"Belum", input_oleh:"Agus Pramono" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", kategori_task:"Opening", nama_task:"Buka toko tepat waktu", status:"Selesai", input_oleh:"Dewi Lestari" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", kategori_task:"Display", nama_task:"Rapikan display produk baru", status:"Selesai", input_oleh:"Dewi Lestari" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", kategori_task:"Kebersihan", nama_task:"Pel lantai area kasir", status:"Belum", input_oleh:"Dewi Lestari" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", kategori_task:"Stok", nama_task:"Cek ketersediaan stok fast moving", status:"Belum", input_oleh:"Dewi Lestari" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", kategori_task:"Closing", nama_task:"Tutup kasir & rekap penjualan", status:"Belum", input_oleh:"Dewi Lestari" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", kategori_task:"Opening", nama_task:"Buka toko tepat waktu", status:"Selesai", input_oleh:"Fajar Nugroho" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", kategori_task:"Display", nama_task:"Rapikan display produk baru", status:"Selesai", input_oleh:"Fajar Nugroho" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", kategori_task:"Kebersihan", nama_task:"Pel lantai area kasir", status:"Selesai", input_oleh:"Fajar Nugroho" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", kategori_task:"Stok", nama_task:"Cek ketersediaan stok fast moving", status:"Selesai", input_oleh:"Fajar Nugroho" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", kategori_task:"Closing", nama_task:"Tutup kasir & rekap penjualan", status:"Selesai", input_oleh:"Fajar Nugroho" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", kategori_task:"Opening", nama_task:"Buka toko tepat waktu", status:"Selesai", input_oleh:"Lina Marlina" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", kategori_task:"Display", nama_task:"Rapikan display produk baru", status:"Selesai", input_oleh:"Lina Marlina" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", kategori_task:"Kebersihan", nama_task:"Pel lantai area kasir", status:"Belum", input_oleh:"Lina Marlina" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", kategori_task:"Stok", nama_task:"Cek ketersediaan stok fast moving", status:"Selesai", input_oleh:"Lina Marlina" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", kategori_task:"Closing", nama_task:"Tutup kasir & rekap penjualan", status:"Belum", input_oleh:"Lina Marlina" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", kategori_task:"Opening", nama_task:"Buka toko tepat waktu", status:"Selesai", input_oleh:"Tri Wahyono" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", kategori_task:"Display", nama_task:"Rapikan display produk baru", status:"Belum", input_oleh:"Tri Wahyono" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", kategori_task:"Kebersihan", nama_task:"Pel lantai area kasir", status:"Belum", input_oleh:"Tri Wahyono" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", kategori_task:"Stok", nama_task:"Cek ketersediaan stok fast moving", status:"Selesai", input_oleh:"Tri Wahyono" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", kategori_task:"Closing", nama_task:"Tutup kasir & rekap penjualan", status:"Belum", input_oleh:"Tri Wahyono" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", kategori_task:"Opening", nama_task:"Buka toko tepat waktu", status:"Selesai", input_oleh:"Prio Utomo" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", kategori_task:"Display", nama_task:"Rapikan display produk baru", status:"Selesai", input_oleh:"Prio Utomo" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", kategori_task:"Kebersihan", nama_task:"Pel lantai area kasir", status:"Selesai", input_oleh:"Prio Utomo" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", kategori_task:"Stok", nama_task:"Cek ketersediaan stok fast moving", status:"Selesai", input_oleh:"Prio Utomo" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", kategori_task:"Closing", nama_task:"Tutup kasir & rekap penjualan", status:"Belum", input_oleh:"Prio Utomo" },
+  ],
+  setoran: [
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", nama_kasir:"Ratna Dewi", jam_setoran:"14:30", jumlah_setoran:8500000, target_setoran:9000000, metode:"Transfer", status_konfirmasi:"Dikonfirmasi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", nama_kasir:"Bela Savitri", jam_setoran:"15:45", jumlah_setoran:7200000, target_setoran:8000000, metode:"Tunai", status_konfirmasi:"Dikonfirmasi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", nama_kasir:"Rudi Hartono", jam_setoran:"13:00", jumlah_setoran:11500000, target_setoran:10000000, metode:"Transfer", status_konfirmasi:"Dikonfirmasi" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", nama_kasir:"Ani Kusuma", jam_setoran:"16:30", jumlah_setoran:6800000, target_setoran:8500000, metode:"Tunai", status_konfirmasi:"Pending" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", nama_kasir:"Wahyu Adi", jam_setoran:"14:00", jumlah_setoran:9100000, target_setoran:9000000, metode:"Transfer", status_konfirmasi:"Dikonfirmasi" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", nama_kasir:"Fera Anggraini", jam_setoran:"13:45", jumlah_setoran:12000000, target_setoran:11000000, metode:"Transfer", status_konfirmasi:"Dikonfirmasi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-004", nama_toko:"Toko Bekasi Barat", nama_kasir:"Dimas Kurnia", jam_setoran:"17:00", jumlah_setoran:5500000, target_setoran:7500000, metode:"Tunai", status_konfirmasi:"Pending" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-003", nama_toko:"Toko Sukabumi", nama_kasir:"Susy Ratnasari", jam_setoran:"14:50", jumlah_setoran:4200000, target_setoran:5000000, metode:"Transfer", status_konfirmasi:"Dikonfirmasi" },
+  ],
+  absensi: [
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", nama_karyawan:"Agus Pramono", jabatan:"Store Leader", jam_masuk:"07:55", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", nama_karyawan:"Nia Ramadhani", jabatan:"Pramuniaga", jam_masuk:"08:10", status_kehadiran:"Terlambat", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", nama_karyawan:"Ratna Dewi", jabatan:"Kasir", jam_masuk:"07:58", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", nama_karyawan:"Heri Susanto", jabatan:"Pramuniaga", jam_masuk:"", status_kehadiran:"Alpha", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", nama_karyawan:"Dewi Lestari", jabatan:"Store Leader", jam_masuk:"08:00", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", nama_karyawan:"Sandra Wulan", jabatan:"Pramuniaga", jam_masuk:"07:50", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih", nama_karyawan:"Bela Savitri", jabatan:"Kasir", jam_masuk:"08:05", status_kehadiran:"Terlambat", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", nama_karyawan:"Fajar Nugroho", jabatan:"Store Leader", jam_masuk:"07:45", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", nama_karyawan:"Rudi Hartono", jabatan:"Kasir", jam_masuk:"07:55", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading", nama_karyawan:"Putri Rahayu", jabatan:"Pramuniaga", jam_masuk:"08:00", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", nama_karyawan:"Lina Marlina", jabatan:"Store Leader", jam_masuk:"08:00", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", nama_karyawan:"Ani Kusuma", jabatan:"Kasir", jam_masuk:"08:15", status_kehadiran:"Terlambat", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", nama_karyawan:"Dodi Pratama", jabatan:"Pramuniaga", jam_masuk:"", status_kehadiran:"Izin", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", nama_karyawan:"Silvi Anggraini", jabatan:"Pramuniaga", jam_masuk:"07:55", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", nama_karyawan:"Tri Wahyono", jabatan:"Store Leader", jam_masuk:"08:00", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", nama_karyawan:"Wahyu Adi", jabatan:"Kasir", jam_masuk:"07:50", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah", nama_karyawan:"Rini Astuti", jabatan:"Pramuniaga", jam_masuk:"08:20", status_kehadiran:"Terlambat", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", nama_karyawan:"Prio Utomo", jabatan:"Store Leader", jam_masuk:"07:45", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", nama_karyawan:"Fera Anggraini", jabatan:"Kasir", jam_masuk:"07:55", status_kehadiran:"Hadir", shift:"Pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", nama_karyawan:"Bagas Prasetyo", jabatan:"Pramuniaga", jam_masuk:"08:00", status_kehadiran:"Hadir", shift:"Pagi" },
+  ],
+  log_harian: [
+    { tanggal:"2026-05-19", kode_toko:"JBR-004", nama_toko:"Toko Cirebon Utara", input_oleh:"Neni Apriani", kategori:"Insiden", deskripsi:"Atap bocor saat hujan lebat, produk di area tengah toko terkena air", status_kondisi:"Kritis", tindak_lanjut:"Laporan sudah dikirim ke AM, tunggu instruksi perbaikan" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-004", nama_toko:"Toko Bekasi Barat", input_oleh:"Siti Rahayu", kategori:"Insiden", deskripsi:"Mesin kasir mati mendadak sekitar jam 14.00, sudah dilaporkan ke IT", status_kondisi:"Perlu Perhatian", tindak_lanjut:"Menunggu teknisi" },
+    { tanggal:"2026-05-19", kode_toko:"JTG-003", nama_toko:"Toko Solo Baru", input_oleh:"Joko Widiarso", kategori:"Keluhan", deskripsi:"Pelanggan komplain produk kadaluarsa ditemukan di rak (item sudah disingkirkan)", status_kondisi:"Perlu Perhatian", tindak_lanjut:"Cek seluruh tanggal expired besok pagi" },
+    { tanggal:"2026-05-19", kode_toko:"JKT-001", nama_toko:"Toko Senen", input_oleh:"Agus Pramono", kategori:"Operasional", deskripsi:"Operasional berjalan normal. Penjualan hari ini Rp 8,5 juta, mendekati target.", status_kondisi:"Normal", tindak_lanjut:"" },
+    { tanggal:"2026-05-19", kode_toko:"JTM-003", nama_toko:"Toko Malang Kota", input_oleh:"Endah Sulistyowati", kategori:"Penjualan", deskripsi:"Omset hari ini Rp 9.8 juta, 10% di atas target harian", status_kondisi:"Normal", tindak_lanjut:"" },
+    { tanggal:"2026-05-18", kode_toko:"JKT-005", nama_toko:"Toko Depok Timur", input_oleh:"Wahyu Setiawan", kategori:"Insiden", deskripsi:"Kebocoran ditemukan di area gudang belakang, merembes ke produk air mineral", status_kondisi:"Perlu Perhatian", tindak_lanjut:"Tim maintenance sudah diinformasikan" },
+    { tanggal:"2026-05-18", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota", input_oleh:"Lina Marlina", kategori:"Operasional", deskripsi:"Toko berjalan normal. Promo paket lebaran berjalan baik, antrian terkendali.", status_kondisi:"Normal", tindak_lanjut:"" },
+  ],
+  checklist_kunjungan: [
+    { tanggal:"2026-05-20", jam_selesai:"11:30", kode_toko:"JKT-001", nama_toko:"Toko Senen",          area:"Jabodetabek", nama_arco:"Rina Wati",       nama_sl:"Agus Pramono",        skor_checklist:86, kondisi_toko:"Normal",           status_tindakan:"selesai_tempat" },
+    { tanggal:"2026-05-20", jam_selesai:"14:00", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading",  area:"Jabodetabek", nama_arco:"Hendra Gunawan",  nama_sl:"Fajar Nugroho",       skor_checklist:64, kondisi_toko:"Perlu Perhatian",  status_tindakan:"follow_up" },
+    { tanggal:"2026-05-20", jam_selesai:"09:45", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah",area:"Jawa Tengah", nama_arco:"Bambang Irawan",  nama_sl:"Tri Wahyono",         skor_checklist:41, kondisi_toko:"Kritis",           status_tindakan:"eskalasi_om" },
+    { tanggal:"2026-05-19", jam_selesai:"12:15", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota",   area:"Jawa Barat",  nama_arco:"Anton Kurniawan", nama_sl:"Lina Marlina",        skor_checklist:91, kondisi_toko:"Normal",           status_tindakan:"selesai_tempat" },
+    { tanggal:"2026-05-19", jam_selesai:"10:00", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", area:"Jawa Timur",  nama_arco:"Wati Soekarno",   nama_sl:"Prio Utomo",          skor_checklist:77, kondisi_toko:"Normal",           status_tindakan:"follow_up" },
+    { tanggal:"2026-05-18", jam_selesai:"13:30", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih",  area:"Jabodetabek", nama_arco:"Rina Wati",       nama_sl:"Dewi Lestari",        skor_checklist:95, kondisi_toko:"Normal",           status_tindakan:"selesai_tempat" },
+    { tanggal:"2026-05-18", jam_selesai:"11:00", kode_toko:"JBR-003", nama_toko:"Toko Sukabumi",       area:"Jawa Barat",  nama_arco:"Putri Handayani", nama_sl:"Eko Santoso",         skor_checklist:68, kondisi_toko:"Perlu Perhatian",  status_tindakan:"follow_up" },
+    { tanggal:"2026-05-17", jam_selesai:"10:30", kode_toko:"JTM-003", nama_toko:"Toko Malang Kota",    area:"Jawa Timur",  nama_arco:"Yusuf Hakim",     nama_sl:"Endah Sulistyowati",  skor_checklist:83, kondisi_toko:"Normal",           status_tindakan:"selesai_tempat" },
+    { tanggal:"2026-05-17", jam_selesai:"14:00", kode_toko:"JTG-004", nama_toko:"Toko Yogyakarta Kota",area:"Jawa Tengah", nama_arco:"Rini Supriatin",  nama_sl:"Haryanto",            skor_checklist:55, kondisi_toko:"Perlu Perhatian",  status_tindakan:"follow_up" },
+  ],
+  sku_sampling: [
+    { tanggal:"2026-05-20", kode_toko:"JKT-001", nama_toko:"Toko Senen",          area:"Jabodetabek", nama_arco:"Rina Wati",       kode_sku:"SKU-001", nama_produk:"Indomie Goreng",       stok_pos:50, stok_fisik:48, selisih:-2 },
+    { tanggal:"2026-05-20", kode_toko:"JKT-001", nama_toko:"Toko Senen",          area:"Jabodetabek", nama_arco:"Rina Wati",       kode_sku:"SKU-005", nama_produk:"Sabun Lifebuoy 80g",   stok_pos:30, stok_fisik:30, selisih:0  },
+    { tanggal:"2026-05-20", kode_toko:"JKT-001", nama_toko:"Toko Senen",          area:"Jabodetabek", nama_arco:"Rina Wati",       kode_sku:"SKU-012", nama_produk:"Teh Botol 350ml",      stok_pos:60, stok_fisik:55, selisih:-5 },
+    { tanggal:"2026-05-20", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading",  area:"Jabodetabek", nama_arco:"Hendra Gunawan",  kode_sku:"SKU-001", nama_produk:"Indomie Goreng",       stok_pos:45, stok_fisik:40, selisih:-5 },
+    { tanggal:"2026-05-20", kode_toko:"JKT-003", nama_toko:"Toko Kelapa Gading",  area:"Jabodetabek", nama_arco:"Hendra Gunawan",  kode_sku:"SKU-023", nama_produk:"Minyak Goreng 1L",    stok_pos:20, stok_fisik:25, selisih:5  },
+    { tanggal:"2026-05-20", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah",area:"Jawa Tengah", nama_arco:"Bambang Irawan",  kode_sku:"SKU-007", nama_produk:"Beras Premium 5kg",   stok_pos:15, stok_fisik:10, selisih:-5 },
+    { tanggal:"2026-05-20", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah",area:"Jawa Tengah", nama_arco:"Bambang Irawan",  kode_sku:"SKU-015", nama_produk:"Susu UHT Full 1L",    stok_pos:25, stok_fisik:20, selisih:-5 },
+    { tanggal:"2026-05-20", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah",area:"Jawa Tengah", nama_arco:"Bambang Irawan",  kode_sku:"SKU-031", nama_produk:"Detergen Bubuk 800g", stok_pos:18, stok_fisik:15, selisih:-3 },
+    { tanggal:"2026-05-20", kode_toko:"JTG-001", nama_toko:"Toko Semarang Tengah",area:"Jawa Tengah", nama_arco:"Bambang Irawan",  kode_sku:"SKU-042", nama_produk:"Aqua 1500ml",         stok_pos:40, stok_fisik:40, selisih:0  },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota",   area:"Jawa Barat",  nama_arco:"Anton Kurniawan", kode_sku:"SKU-001", nama_produk:"Indomie Goreng",       stok_pos:80, stok_fisik:80, selisih:0  },
+    { tanggal:"2026-05-19", kode_toko:"JBR-001", nama_toko:"Toko Bandung Kota",   area:"Jawa Barat",  nama_arco:"Anton Kurniawan", kode_sku:"SKU-019", nama_produk:"Kecap Manis 600ml",   stok_pos:22, stok_fisik:20, selisih:-2 },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", area:"Jawa Timur",  nama_arco:"Wati Soekarno",   kode_sku:"SKU-002", nama_produk:"Indomie Rebus",        stok_pos:40, stok_fisik:42, selisih:2  },
+    { tanggal:"2026-05-19", kode_toko:"JTM-001", nama_toko:"Toko Surabaya Pusat", area:"Jawa Timur",  nama_arco:"Wati Soekarno",   kode_sku:"SKU-011", nama_produk:"Aqua 600ml",           stok_pos:100,stok_fisik:93, selisih:-7 },
+    { tanggal:"2026-05-18", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih",  area:"Jabodetabek", nama_arco:"Rina Wati",       kode_sku:"SKU-001", nama_produk:"Indomie Goreng",       stok_pos:55, stok_fisik:55, selisih:0  },
+    { tanggal:"2026-05-18", kode_toko:"JKT-002", nama_toko:"Toko Cempaka Putih",  area:"Jabodetabek", nama_arco:"Rina Wati",       kode_sku:"SKU-033", nama_produk:"Pocari Sweat 500ml",  stok_pos:24, stok_fisik:22, selisih:-2 },
+  ],
+  tren_7hari: {
+    labels: ["13 Mei","14 Mei","15 Mei","16 Mei","17 Mei","18 Mei","19 Mei"],
+    task_completion: [88,91,85,93,89,87,84],
+    setoran_ontime:  [92,88,95,90,87,91,85],
+    absensi_coverage:[94,96,93,97,95,94,92],
+    kunjungan:       [5,7,4,8,6,5,3]
+  }
+};
+</script>
+
+<!-- ===== STATE ===== -->
+<script>
+const STATE = { activeTab:'overview', filterArea:'Semua', data:{...DEMO}, usingDemo:true };
+let charts = {};
+function fmt(n){ return 'Rp '+Number(n).toLocaleString('id-ID'); }
+function pct(a,b){ return b===0?0:Math.round(a/b*100); }
+function durasi(j1,j2){ if(!j1||!j2) return '-'; const [h1,m1]=j1.split(':').map(Number); const [h2,m2]=j2.split(':').map(Number); const d=(h2*60+m2)-(h1*60+m1); return d>0?d+' mnt':'-'; }
+function onTimeSalary(jam){ if(!jam) return false; const [h,m]=jam.split(':').map(Number); const [bh,bm]=CONFIG.batas_jam_masuk.split(':').map(Number); return h*60+m<=bh*60+bm; }
+function onTimeSetoran(jam){ if(!jam) return false; const [h,m]=jam.split(':').map(Number); const [bh,bm]=CONFIG.batas_jam_setoran.split(':').map(Number); return h*60+m<=bh*60+bm; }
+function filtered(arr, areaKey='area', tokoKey='nama_toko'){
+  return arr.filter(r=>{
+    const aOk = STATE.filterArea==='Semua' || r[areaKey]===STATE.filterArea;
+    return aOk;
+  });
+}
+</script>
+
+<!-- ===== LAYOUT ===== -->
+<div id="sidebar">
+  <!-- Brand -->
+  <div style="padding:20px 20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:9px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:15px;flex-shrink:0;">M</div>
+      <div>
+        <div style="color:#f1f5f9;font-weight:700;font-size:13px;line-height:1.2;">Makmur Sejahtera</div>
+        <div style="color:#64748b;font-size:11px;">Dashboard COO</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo Badge -->
+  <div id="demo-badge" style="margin:12px 16px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);border-radius:7px;padding:8px 10px;">
+    <div style="color:#fbbf24;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">⚡ Mode Demo</div>
+    <div style="color:#94a3b8;font-size:10px;margin-top:2px;">Belum terhubung ke<br>Google Sheets</div>
+  </div>
+
+  <!-- Nav -->
+  <nav style="padding:8px 0; flex:1;">
+    <div style="padding:4px 16px 8px;color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Monitoring</div>
+    <div class="nav-item active" onclick="switchTab('overview')" id="nav-overview">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-3a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1v-7z"/></svg>
+      Overview
+    </div>
+    <div class="nav-item" onclick="switchTab('kunjungan')" id="nav-kunjungan">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Kunjungan
+    </div>
+    <div class="nav-item" onclick="switchTab('daily-task')" id="nav-daily-task">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+      Daily Task
+    </div>
+    <div class="nav-item" onclick="switchTab('setoran')" id="nav-setoran">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+      Setoran
+    </div>
+    <div class="nav-item" onclick="switchTab('absensi')" id="nav-absensi">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      Absensi
+    </div>
+    <div class="nav-item" onclick="switchTab('log-harian')" id="nav-log-harian">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      Log Harian
+    </div>
+    <div style="padding:12px 16px 6px;color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Audit ARCO</div>
+    <div class="nav-item" onclick="switchTab('checklist')" id="nav-checklist">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7l2 2 4-4"/></svg>
+      Checklist Toko
+    </div>
+    <div class="nav-item" onclick="switchTab('sku-selisih')" id="nav-sku-selisih">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Rekap SKU Selisih
+    </div>
+  </nav>
+
+  <!-- Clock -->
+  <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,0.06);">
+    <div id="jam-sidebar" style="font-family:monospace;font-size:20px;font-weight:700;color:#f1f5f9;"></div>
+    <div id="tgl-sidebar" style="font-size:11px;color:#64748b;margin-top:2px;"></div>
+    <div id="last-update" style="font-size:10px;color:#475569;margin-top:6px;"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div>
+      <div id="page-title" style="font-size:18px;font-weight:800;color:#0f172a;">Overview</div>
+      <div id="page-sub" style="font-size:12px;color:#94a3b8;margin-top:1px;">Ringkasan operasional semua toko hari ini</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <select id="filter-area" onchange="applyFilter()" style="font-size:13px;border:1px solid #e2e8f0;border-radius:8px;padding:7px 12px;background:white;color:#334155;outline:none;">
+        <option value="Semua">Semua Area</option>
+      </select>
+      <button onclick="loadAllData()" class="btn-refresh">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content-area">
+
+    <!-- ===== OVERVIEW ===== -->
+    <div class="panel active" id="panel-overview">
+      <!-- KPI Row -->
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <div class="grid-2" style="margin-bottom:16px;">
+        <!-- Area Summary -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📍 Status per Area</span>
+            <span class="card-subtitle">Hari ini</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table id="area-summary-table">
+              <thead><tr>
+                <th>Area</th><th>Toko Aktif</th><th>Task %</th><th>Setoran</th><th>Absensi</th><th>Status</th>
+              </tr></thead>
+              <tbody id="area-summary-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🚨 Alert Prioritas</span>
+            <span id="alert-count" class="badge badge-red"></span>
+          </div>
+          <div class="card-body" id="alert-body" style="max-height:280px;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header"><span class="card-title">📈 Task Completion 7 Hari</span></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-task"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">💰 Setoran On-Time 7 Hari</span></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-setoran-trend"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">👥 Absensi Coverage 7 Hari</span></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-absensi-trend"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== KUNJUNGAN ===== -->
+    <div class="panel" id="panel-kunjungan">
+      <div class="stat-row" id="kunjungan-stat-row"></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 Riwayat Kunjungan</span>
+          <div style="display:flex;gap:8px;">
+            <select id="filter-visitor-role" onchange="renderKunjungan()" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
+              <option value="">Semua Role</option>
+              <option>Operation Manager (OM)</option>
+              <option>Area Coordinator (ARCO)</option>
+            </select>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Tanggal</th><th>Toko</th><th>Area</th><th>Visitor</th><th>Role</th>
+              <th>Jam Datang</th><th>Durasi</th><th>Temuan</th><th>Status</th>
+            </tr></thead>
+            <tbody id="kunjungan-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DAILY TASK ===== -->
+    <div class="panel" id="panel-daily-task">
+      <div class="stat-row" id="task-stat-row"></div>
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><span class="card-title">🗓️ Heatmap Compliance (7 Hari)</span></div>
+          <div class="card-body heatmap-wrap"><table class="heatmap-table" id="heatmap-table"></table></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">📊 Task Belum Selesai per Kategori</span></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-task-kategori"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📋 Detail Task Hari Ini</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Toko</th><th>Area</th><th>Total Task</th><th>Selesai</th><th>Belum</th><th>Completion</th><th>Status</th></tr></thead>
+            <tbody id="task-detail-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SETORAN ===== -->
+    <div class="panel" id="panel-setoran">
+      <div class="stat-row" id="setoran-stat-row"></div>
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><span class="card-title">💰 Setoran Hari Ini</span></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Toko</th><th>Kasir</th><th>Jam</th><th>Jumlah</th><th>Target</th><th>Selisih</th><th>On-Time</th><th>Konfirmasi</th></tr></thead>
+              <tbody id="setoran-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">📊 Setoran vs Target (7 Hari)</span></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-setoran-bar"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ABSENSI ===== -->
+    <div class="panel" id="panel-absensi">
+      <div class="stat-row" id="absensi-stat-row"></div>
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><span class="card-title">👥 Ringkasan per Toko</span></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Toko</th><th>Hadir</th><th>Terlambat</th><th>Izin/Sakit</th><th>Alpha</th><th>Coverage</th><th>Status</th></tr></thead>
+              <tbody id="absensi-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">📊 Distribusi Kehadiran</span></div>
+          <div class="card-body" style="display:flex;align-items:center;justify-content:center;">
+            <div style="width:200px;height:200px;position:relative;"><canvas id="chart-absensi-donut"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📋 Detail Absensi Karyawan</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Toko</th><th>Karyawan</th><th>Jabatan</th><th>Jam Masuk</th><th>Shift</th><th>Status</th></tr></thead>
+            <tbody id="absensi-detail-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LOG HARIAN ===== -->
+    <div class="panel" id="panel-log-harian">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <select id="filter-log-status" onchange="renderLog()" style="font-size:13px;border:1px solid #e2e8f0;border-radius:8px;padding:7px 12px;">
+          <option value="">Semua Status</option>
+          <option>Kritis</option><option>Perlu Perhatian</option><option>Normal</option>
+        </select>
+        <select id="filter-log-kategori" onchange="renderLog()" style="font-size:13px;border:1px solid #e2e8f0;border-radius:8px;padding:7px 12px;">
+          <option value="">Semua Kategori</option>
+          <option>Insiden</option><option>Keluhan</option><option>Operasional</option><option>Penjualan</option>
+        </select>
+      </div>
+      <div id="log-feed"></div>
+    </div>
+
+    <!-- ===== CHECKLIST ARCO ===== -->
+    <div class="panel" id="panel-checklist">
+      <div class="stat-row" id="checklist-stat-row"></div>
+      <div class="grid-2" style="margin-bottom:16px;">
+        <!-- Tabel kunjungan -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📋 Hasil Checklist per Kunjungan</span>
+            <div style="display:flex;gap:8px;">
+              <select id="filter-checklist-kondisi" onchange="renderChecklist()" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
+                <option value="">Semua Kondisi</option>
+                <option>Normal</option><option>Perlu Perhatian</option><option>Kritis</option>
+              </select>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Tanggal</th><th>Toko</th><th>ARCO</th><th>Skor</th><th>Kondisi</th><th>Tindakan</th></tr></thead>
+              <tbody id="checklist-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Distribusi skor -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">📊 Distribusi Skor Checklist</span></div>
+          <div class="card-body">
+            <div class="chart-wrap" style="height:180px;"><canvas id="chart-checklist-donut"></canvas></div>
+            <div id="checklist-bar-list" style="margin-top:16px;"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Skor per area -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">🏪 Rata-Rata Skor per Area (Bulan Ini)</span></div>
+        <div class="card-body">
+          <div id="area-checklist-bars"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SKU SELISIH ===== -->
+    <div class="panel" id="panel-sku-selisih">
+      <div class="stat-row" id="sku-stat-row"></div>
+      <div class="grid-2" style="margin-bottom:16px;">
+        <!-- Top SKU selisih -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">📦 Top SKU Selisih Terbesar</span><span class="card-subtitle">Selisih absolut</span></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-sku-bar"></canvas></div></div>
+        </div>
+        <!-- Selisih per toko -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">🏪 Selisih per Toko</span></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Toko</th><th>SKU Dicek</th><th>Ada Selisih</th><th>Total Selisih</th><th>Status</th></tr></thead>
+              <tbody id="sku-per-toko-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- Detail semua SKU -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 Detail Seluruh SKU Sampling</span>
+          <div style="display:flex;gap:8px;">
+            <select id="filter-sku-status" onchange="renderSKU()" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
+              <option value="">Semua</option>
+              <option value="selisih">Ada Selisih</option>
+              <option value="sesuai">Sesuai</option>
+            </select>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Toko</th><th>Kode SKU</th><th>Nama Produk</th><th>Stok POS</th><th>Stok Fisik</th><th>Selisih</th><th>Keterangan</th></tr></thead>
+            <tbody id="sku-detail-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content-area -->
+</div><!-- /main -->
+
+<script>
+// ========== TAB SWITCHING ==========
+function switchTab(tab){
+  STATE.activeTab = tab;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const panel = document.getElementById('panel-'+tab);
+  const nav   = document.getElementById('nav-'+tab);
+  if(panel) panel.classList.add('active');
+  if(nav)   nav.classList.add('active');
+  const titles = {
+    'overview':    ['Overview','Ringkasan operasional semua toko hari ini'],
+    'kunjungan':   ['Kunjungan Supervisi','Rekap kunjungan Operation Manager (OM) & Supervisor'],
+    'daily-task':  ['Daily Task','Checklist & compliance task harian toko'],
+    'setoran':     ['Setoran Kasir','Monitoring setoran uang pendapatan'],
+    'absensi':     ['Absensi Karyawan','Jam masuk & kehadiran seluruh toko'],
+    'log-harian':  ['Log Harian','Catatan kegiatan & insiden operasional'],
+    'checklist':   ['Checklist Kunjungan ARCO','Skor audit operasional per toko & per area'],
+    'sku-selisih': ['Rekap SKU Selisih','Selisih stok fisik vs POS dari sampling kunjungan ARCO']
+  };
+  const t = titles[tab]||['Dashboard',''];
+  document.getElementById('page-title').textContent = t[0];
+  document.getElementById('page-sub').textContent   = t[1];
+  renderActiveTab();
+}
+
+function applyFilter(){
+  STATE.filterArea = document.getElementById('filter-area').value;
+  renderActiveTab();
+}
+
+/** Isi dropdown area dari data master_toko yang sudah dimuat */
+function rebuildAreaFilter(){
+  const sel = document.getElementById('filter-area');
+  const prev = sel.value; // pertahankan pilihan sebelumnya jika masih valid
+  const areas = [...new Set(
+    (STATE.data.master_toko || []).map(r => r.area).filter(Boolean)
+  )].sort();
+  sel.innerHTML = '<option value="Semua">Semua Area</option>'
+    + areas.map(a => `<option value="${a}">${a}</option>`).join('');
+  // Kembalikan pilihan sebelumnya jika masih ada di list
+  if(areas.includes(prev)) sel.value = prev;
+  else sel.value = 'Semua';
+  STATE.filterArea = sel.value;
+}
+
+function renderActiveTab(){
+  const t = STATE.activeTab;
+  if(t==='overview')   renderOverview();
+  if(t==='kunjungan')  renderKunjungan();
+  if(t==='daily-task') renderDailyTask();
+  if(t==='setoran')    renderSetoran();
+  if(t==='absensi')    renderAbsensi();
+  if(t==='log-harian')  renderLog();
+  if(t==='checklist')   renderChecklist();
+  if(t==='sku-selisih') renderSKU();
+}
+
+// ========== CLOCK ==========
+function updateClock(){
+  const now = new Date();
+  const j = now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const h = now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('jam-sidebar').textContent = j;
+  document.getElementById('tgl-sidebar').textContent = h;
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ========== CHART HELPERS ==========
+const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+  scales:{ x:{grid:{display:false}, ticks:{font:{size:10},color:'#94a3b8'}},
+           y:{grid:{color:'#f1f5f9'}, ticks:{font:{size:10},color:'#94a3b8'}} } };
+
+function mkLineChart(id, labels, data, color, label){
+  if(charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  charts[id] = new Chart(ctx, { type:'line', data:{
+    labels, datasets:[{ label, data, borderColor:color, backgroundColor:color+'22',
+      fill:true, tension:0.4, pointRadius:3, pointBackgroundColor:color, borderWidth:2 }]
+  }, options:{...chartDefaults, scales:{...chartDefaults.scales, y:{...chartDefaults.scales.y, min:60, max:100}}} });
+}
+
+function mkBarChart(id, labels, datasets){
+  if(charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  charts[id] = new Chart(ctx, { type:'bar', data:{ labels, datasets },
+    options:{...chartDefaults, plugins:{legend:{display:true, labels:{font:{size:11},color:'#64748b'}}}} });
+}
+
+function mkDonutChart(id, labels, data, colors){
+  if(charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  charts[id] = new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{data, backgroundColor:colors, borderWidth:0, hoverOffset:4}] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'70%',
+      plugins:{legend:{position:'right', labels:{font:{size:11},color:'#334155', padding:12}}} } });
+}
+
+// ========== RENDER OVERVIEW ==========
+function renderOverview(){
+  const d = STATE.data;
+  const todayTasks = filtered(d.daily_task);
+  const todaySetoran = filtered(d.setoran);
+  const todayAbsensi = filtered(d.absensi);
+  const todayKunjungan = filtered(d.kunjungan).filter(k=>k.tanggal===todayStr());
+  const totalToko = filtered(d.master_toko).length;
+
+  const taskSelesai = todayTasks.filter(t=>t.status==='Selesai').length;
+  const taskTotal   = todayTasks.length;
+  const taskPct     = pct(taskSelesai, taskTotal);
+
+  const setoranOntime = todaySetoran.filter(s=>onTimeSetoran(s.jam_setoran)).length;
+  const setoranPct    = pct(setoranOntime, todaySetoran.length||1);
+
+  const hadir     = todayAbsensi.filter(a=>a.status_kehadiran==='Hadir'||a.status_kehadiran==='Terlambat').length;
+  const absPct    = pct(hadir, todayAbsensi.length||1);
+
+  // KPI Cards
+  const kpiData = [
+    { label:'Total Toko Aktif', value: totalToko, unit:'', icon:'🏪', cls:'blue', trend:'+2 toko baru', tup:true },
+    { label:'Kunjungan Hari Ini', value: todayKunjungan.filter(k=>k.status==='Selesai').length, unit:'', icon:'🚶', cls:'purple', trend:`dari ${todayKunjungan.length} terjadwal`, tup:true },
+    { label:'Task Completion', value: taskPct, unit:'%', icon:'✅', cls: taskPct>=90?'green':taskPct>=75?'amber':'red', trend:`${taskSelesai}/${taskTotal} task selesai`, tup:taskPct>=90 },
+    { label:'Setoran On-Time', value: setoranPct, unit:'%', icon:'💰', cls: setoranPct>=90?'green':setoranPct>=70?'amber':'red', trend:`${setoranOntime}/${todaySetoran.length} toko`, tup:setoranPct>=90 },
+    { label:'Absensi Coverage', value: absPct, unit:'%', icon:'👥', cls: absPct>=90?'green':absPct>=80?'amber':'red', trend:`${hadir}/${todayAbsensi.length} hadir`, tup:absPct>=90 },
+  ];
+  document.getElementById('kpi-grid').innerHTML = kpiData.map(k=>`
+    <div class="kpi-card ${k.cls}">
+      <div class="kpi-icon" style="background:${iconBg(k.cls)}">
+        <span style="font-size:18px;">${k.icon}</span>
+      </div>
+      <div class="kpi-value">${k.value}<span style="font-size:16px;font-weight:600;color:#64748b;">${k.unit}</span></div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-trend ${k.tup?'trend-up':'trend-down'}">${k.tup?'▲':'▼'} ${k.trend}</div>
+    </div>`).join('');
+
+  // Area Summary
+  const areas = ['Jabodetabek','Jawa Barat','Jawa Tengah','Jawa Timur'];
+  const areaBody = areas.map(area=>{
+    const toko   = d.master_toko.filter(t=>t.area===area).length;
+    const tasks  = d.daily_task.filter(t=>t.area===area||d.master_toko.find(m=>m.kode_toko===t.kode_toko&&m.area===area));
+    const tSelesai = tasks.filter(t=>t.status==='Selesai').length;
+    const tPct   = pct(tSelesai, tasks.length||1);
+    const setor  = d.setoran.filter(s=>d.master_toko.find(m=>m.kode_toko===s.kode_toko&&m.area===area));
+    const sOntime= setor.filter(s=>onTimeSetoran(s.jam_setoran)).length;
+    const sPct   = pct(sOntime, setor.length||1);
+    const absen  = d.absensi.filter(a=>d.master_toko.find(m=>m.kode_toko===a.kode_toko&&m.area===area));
+    const aHadir = absen.filter(a=>a.status_kehadiran==='Hadir'||a.status_kehadiran==='Terlambat').length;
+    const aPct   = pct(aHadir, absen.length||1);
+    const overall= Math.round((tPct+sPct+aPct)/3);
+    const oCls   = overall>=85?'badge-green':overall>=70?'badge-yellow':'badge-red';
+    return `<tr>
+      <td style="font-weight:600;color:#0f172a;">${area}</td>
+      <td style="text-align:center;">${toko}</td>
+      <td class="${cellCls(tPct)}">${tPct}%</td>
+      <td class="${cellCls(sPct)}">${sPct}%</td>
+      <td class="${cellCls(aPct)}">${aPct}%</td>
+      <td><span class="badge ${oCls}">${overall>=85?'Baik':overall>=70?'Perlu Perhatian':'Kritis'}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('area-summary-body').innerHTML = areaBody;
+
+  // Alerts
+  const alerts = [];
+  d.log_harian.filter(l=>l.status_kondisi==='Kritis').forEach(l=>
+    alerts.push({cls:'alert-kritis', dot:'alert-dot-red', toko:l.nama_toko, msg:l.deskripsi, badge:'🔴 KRITIS'}));
+  d.log_harian.filter(l=>l.status_kondisi==='Perlu Perhatian').forEach(l=>
+    alerts.push({cls:'alert-perhatian', dot:'alert-dot-yellow', toko:l.nama_toko, msg:l.deskripsi, badge:'🟡 Perhatian'}));
+  document.getElementById('alert-count').textContent = alerts.length + ' alert';
+  document.getElementById('alert-body').innerHTML = alerts.length ? alerts.map(a=>`
+    <div class="alert-item ${a.cls}">
+      <div class="${a.dot}"></div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:2px;">
+          <span style="font-size:11px;">${a.badge}</span> · ${a.toko}
+        </div>
+        <div style="font-size:12px;color:#334155;">${a.msg}</div>
+      </div>
+    </div>`).join('') : '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">✅ Tidak ada alert hari ini</div>';
+
+  // Charts
+  const t7 = d.tren_7hari;
+  mkLineChart('chart-task', t7.labels, t7.task_completion, '#6366f1', 'Task Completion %');
+  mkLineChart('chart-setoran-trend', t7.labels, t7.setoran_ontime, '#10b981', 'Setoran On-Time %');
+  mkLineChart('chart-absensi-trend', t7.labels, t7.absensi_coverage, '#f59e0b', 'Absensi Coverage %');
+}
+
+function cellCls(v){ return v>=90?'cell-green':v>=70?'cell-yellow':'cell-red'; }
+function iconBg(cls){ return {blue:'#ede9fe',green:'#dcfce7',amber:'#fef9c3',red:'#fee2e2',purple:'#f3e8ff'}[cls]||'#f1f5f9'; }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function roleBadge(role){
+  if(role==='Operation Manager (OM)') return 'badge-purple';
+  if(role==='Area Coordinator (ARCO)') return 'badge-teal';
+  return 'badge-gray';
+}
+
+// ========== RENDER KUNJUNGAN ==========
+function renderKunjungan(){
+  const d = STATE.data;
+  const role = document.getElementById('filter-visitor-role')?.value||'';
+  let rows = filtered(d.kunjungan, 'area_dummy', 'nama_toko').filter(k=>{
+    const areaOk = STATE.filterArea==='Semua' || d.master_toko.find(m=>m.kode_toko===k.kode_toko&&m.area===STATE.filterArea);
+    return areaOk && (!role||k.visitor_role===role);
+  });
+
+  const selesai=rows.filter(r=>r.status==='Selesai').length;
+  const tokoKunjungi=new Set(rows.filter(r=>r.status==='Selesai').map(r=>r.kode_toko)).size;
+  document.getElementById('kunjungan-stat-row').innerHTML = [
+    {val:rows.length, lbl:'Total Kunjungan'},
+    {val:selesai, lbl:'Sudah Selesai'},
+    {val:tokoKunjungi, lbl:'Toko Dikunjungi'},
+    {val:rows.filter(r=>r.status==='Dijadwalkan').length, lbl:'Terjadwal'},
+  ].map(s=>`<div class="stat-box"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+
+  rows.sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
+  const area4 = k=> { const m=d.master_toko.find(m=>m.kode_toko===k.kode_toko); return m?m.area:'-'; };
+  document.getElementById('kunjungan-body').innerHTML = rows.map(k=>{
+    const sBadge = k.status==='Selesai'?'badge-green':k.status==='Dijadwalkan'?'badge-blue':'badge-gray';
+    return `<tr>
+      <td>${k.tanggal}</td>
+      <td><span style="font-weight:600;">${k.nama_toko}</span><br><span style="font-size:11px;color:#94a3b8;">${k.kode_toko}</span></td>
+      <td>${area4(k)}</td>
+      <td>${k.nama_visitor||'-'}</td>
+      <td><span class="badge ${roleBadge(k.visitor_role)}">${k.visitor_role}</span></td>
+      <td>${k.jam_datang||'-'}</td>
+      <td>${durasi(k.jam_datang,k.jam_pergi)}</td>
+      <td style="max-width:200px;white-space:normal;font-size:12px;">${k.temuan||'<span style="color:#94a3b8;">—</span>'}</td>
+      <td><span class="badge ${sBadge}">${k.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ========== RENDER DAILY TASK ==========
+function renderDailyTask(){
+  const d = STATE.data;
+  const today = todayStr();
+  const todayTasks = d.daily_task.filter(t=>{
+    const aOk = STATE.filterArea==='Semua'||d.master_toko.find(m=>m.kode_toko===t.kode_toko&&m.area===STATE.filterArea);
+    return t.tanggal===today && aOk;
+  });
+
+  const total=todayTasks.length, selesai=todayTasks.filter(t=>t.status==='Selesai').length;
+  const pctNow=pct(selesai,total||1);
+  document.getElementById('task-stat-row').innerHTML=[
+    {val:total,lbl:'Total Task Hari Ini'},{val:selesai,lbl:'Selesai'},
+    {val:total-selesai,lbl:'Belum Selesai'},{val:pctNow+'%',lbl:'Completion Rate'}
+  ].map(s=>`<div class="stat-box"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+
+  // Detail table
+  const byToko = {};
+  todayTasks.forEach(t=>{
+    if(!byToko[t.kode_toko]) byToko[t.kode_toko]={nama:t.nama_toko,total:0,selesai:0,area:''};
+    byToko[t.kode_toko].total++;
+    if(t.status==='Selesai') byToko[t.kode_toko].selesai++;
+    const m=d.master_toko.find(m=>m.kode_toko===t.kode_toko);
+    if(m) byToko[t.kode_toko].area=m.area;
+  });
+  document.getElementById('task-detail-body').innerHTML = Object.entries(byToko).map(([k,v])=>{
+    const p=pct(v.selesai,v.total);
+    const bc=p>=90?'#22c55e':p>=75?'#f59e0b':'#ef4444';
+    return `<tr>
+      <td><span style="font-weight:600;">${v.nama}</span><br><span style="font-size:11px;color:#94a3b8;">${k}</span></td>
+      <td>${v.area}</td><td>${v.total}</td><td>${v.selesai}</td><td>${v.total-v.selesai}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="prog-bar" style="width:80px;"><div class="prog-fill" style="width:${p}%;background:${bc};"></div></div>
+          <span style="font-size:13px;font-weight:700;color:${bc};">${p}%</span>
+        </div>
+      </td>
+      <td><span class="badge ${p>=90?'badge-green':p>=75?'badge-yellow':'badge-red'}">${p>=90?'✓ Baik':p>=75?'Sedang':'Kritis'}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Heatmap (simplified — 7 days x top stores)
+  const tokoList = Object.keys(byToko).slice(0,8);
+  const days = STATE.data.tren_7hari.labels;
+  let hm = '<tr><th class="hm-head"></th>' + days.map(d=>`<th class="hm-head">${d.slice(0,6)}</th>`).join('') + '</tr>';
+  tokoList.forEach(kode=>{
+    const vals = days.map((_,i)=> i===6? pct(byToko[kode].selesai, byToko[kode].total) : Math.round(70+Math.random()*25));
+    hm += `<tr><td class="hm-label">${byToko[kode].nama.replace('Toko ','')}</td>` +
+      vals.map(v=>`<td class="hm-cell ${v>=90?'hm-90':v>=75?'hm-75':'hm-0'}">${v}</td>`).join('') + '</tr>';
+  });
+  document.getElementById('heatmap-table').innerHTML = hm;
+
+  // Category chart
+  const cats=['Opening','Display','Kebersihan','Stok','Closing','Lainnya'];
+  const catData=cats.map(c=>todayTasks.filter(t=>t.kategori_task===c&&t.status==='Belum').length);
+  mkBarChart('chart-task-kategori', cats, [{
+    label:'Task Belum Selesai', data:catData,
+    backgroundColor:['#6366f1','#8b5cf6','#f59e0b','#10b981','#ef4444','#64748b'],
+    borderRadius:6, borderSkipped:false
+  }]);
+}
+
+// ========== RENDER SETORAN ==========
+function renderSetoran(){
+  const d = STATE.data;
+  const rows = d.setoran.filter(s=>{
+    return STATE.filterArea==='Semua'||d.master_toko.find(m=>m.kode_toko===s.kode_toko&&m.area===STATE.filterArea);
+  });
+  const totalAmt = rows.reduce((a,r)=>a+(Number(r.jumlah_setoran)||0),0);
+  const targetAmt= rows.reduce((a,r)=>a+(Number(r.target_setoran)||0),0);
+  const ontime   = rows.filter(r=>onTimeSetoran(r.jam_setoran)).length;
+
+  document.getElementById('setoran-stat-row').innerHTML=[
+    {val:rows.length,lbl:'Toko Lapor'},
+    {val:fmt(totalAmt),lbl:'Total Setoran'},
+    {val:fmt(targetAmt),lbl:'Total Target'},
+    {val:pct(ontime,rows.length||1)+'%',lbl:'On-Time Rate'}
+  ].map(s=>`<div class="stat-box"><div class="val" style="font-size:${typeof s.val==='string'&&s.val.length>10?'14px':'22px'}">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+
+  document.getElementById('setoran-body').innerHTML = rows.map(r=>{
+    const selisih=Number(r.jumlah_setoran)-Number(r.target_setoran);
+    const ot=onTimeSetoran(r.jam_setoran);
+    return `<tr>
+      <td><span style="font-weight:600;">${r.nama_toko}</span></td>
+      <td>${r.nama_kasir}</td>
+      <td>${r.jam_setoran}</td>
+      <td style="font-weight:700;">${fmt(r.jumlah_setoran)}</td>
+      <td style="color:#64748b;">${fmt(r.target_setoran)}</td>
+      <td style="font-weight:700;color:${selisih>=0?'#10b981':'#ef4444'};">${selisih>=0?'+':''}${fmt(selisih)}</td>
+      <td><span class="badge ${ot?'badge-green':'badge-red'}">${ot?'✓ On-Time':'Terlambat'}</span></td>
+      <td><span class="badge ${r.status_konfirmasi==='Dikonfirmasi'?'badge-green':'badge-yellow'}">${r.status_konfirmasi}</span></td>
+    </tr>`;
+  }).join('');
+
+  mkBarChart('chart-setoran-bar',
+    STATE.data.tren_7hari.labels,
+    [
+      { label:'Setoran (Juta Rp)', data:[62,70,58,75,68,65,64.8], backgroundColor:'#6366f1aa', borderRadius:4 },
+      { label:'Target (Juta Rp)',  data:[65,65,65,65,65,65,65],   backgroundColor:'#e2e8f0',   borderRadius:4 }
+    ]);
+}
+
+// ========== RENDER ABSENSI ==========
+function renderAbsensi(){
+  const d = STATE.data;
+  const rows = d.absensi.filter(a=>{
+    return STATE.filterArea==='Semua'||d.master_toko.find(m=>m.kode_toko===a.kode_toko&&m.area===STATE.filterArea);
+  });
+
+  const hadir=rows.filter(a=>a.status_kehadiran==='Hadir').length;
+  const terlambat=rows.filter(a=>a.status_kehadiran==='Terlambat').length;
+  const izin=rows.filter(a=>a.status_kehadiran==='Izin'||a.status_kehadiran==='Sakit').length;
+  const alpha=rows.filter(a=>a.status_kehadiran==='Alpha').length;
+
+  document.getElementById('absensi-stat-row').innerHTML=[
+    {val:hadir,lbl:'Hadir',c:'#10b981'},{val:terlambat,lbl:'Terlambat',c:'#f59e0b'},
+    {val:izin,lbl:'Izin/Sakit',c:'#6366f1'},{val:alpha,lbl:'Alpha',c:'#ef4444'}
+  ].map(s=>`<div class="stat-box"><div class="val" style="color:${s.c}">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+
+  const byToko={};
+  rows.forEach(a=>{
+    if(!byToko[a.kode_toko]) byToko[a.kode_toko]={nama:a.nama_toko,hadir:0,terlambat:0,izin:0,alpha:0,total:0};
+    byToko[a.kode_toko].total++;
+    if(a.status_kehadiran==='Hadir') byToko[a.kode_toko].hadir++;
+    if(a.status_kehadiran==='Terlambat') byToko[a.kode_toko].terlambat++;
+    if(a.status_kehadiran==='Izin'||a.status_kehadiran==='Sakit') byToko[a.kode_toko].izin++;
+    if(a.status_kehadiran==='Alpha') byToko[a.kode_toko].alpha++;
+  });
+  document.getElementById('absensi-body').innerHTML=Object.entries(byToko).map(([k,v])=>{
+    const cov=pct(v.hadir+v.terlambat,v.total);
+    return `<tr>
+      <td><span style="font-weight:600;">${v.nama}</span></td>
+      <td style="color:#10b981;font-weight:600;">${v.hadir}</td>
+      <td style="color:#f59e0b;font-weight:600;">${v.terlambat}</td>
+      <td style="color:#6366f1;font-weight:600;">${v.izin}</td>
+      <td style="color:${v.alpha>0?'#ef4444':'#94a3b8'};font-weight:${v.alpha>0?700:400};">${v.alpha}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="prog-bar" style="width:60px;"><div class="prog-fill" style="width:${cov}%;background:${cov>=90?'#22c55e':cov>=80?'#f59e0b':'#ef4444'};"></div></div>
+          <span style="font-size:13px;font-weight:700;">${cov}%</span>
+        </div>
+      </td>
+      <td><span class="badge ${v.alpha>0?'badge-red':cov>=90?'badge-green':'badge-yellow'}">${v.alpha>0?'Ada Alpha':cov>=90?'Lengkap':'Kurang'}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('absensi-detail-body').innerHTML=rows.map(a=>{
+    const sc={Hadir:'badge-green',Terlambat:'badge-yellow',Izin:'badge-blue',Sakit:'badge-blue',Alpha:'badge-red'}[a.status_kehadiran]||'badge-gray';
+    return `<tr>
+      <td>${a.nama_toko}</td>
+      <td style="font-weight:600;">${a.nama_karyawan}</td>
+      <td><span class="chip" style="background:#f1f5f9;color:#334155;">${a.jabatan}</span></td>
+      <td style="font-family:monospace;">${a.jam_masuk||'—'}</td>
+      <td>${a.shift}</td>
+      <td><span class="badge ${sc}">${a.status_kehadiran}</span></td>
+    </tr>`;
+  }).join('');
+
+  mkDonutChart('chart-absensi-donut',
+    ['Hadir','Terlambat','Izin/Sakit','Alpha'],
+    [hadir,terlambat,izin,alpha],
+    ['#22c55e','#f59e0b','#6366f1','#ef4444']);
+}
+
+// ========== RENDER LOG ==========
+function renderLog(){
+  const d = STATE.data;
+  const fStatus = document.getElementById('filter-log-status')?.value||'';
+  const fKat    = document.getElementById('filter-log-kategori')?.value||'';
+  let rows = d.log_harian.filter(l=>{
+    const aOk = STATE.filterArea==='Semua'||d.master_toko.find(m=>m.kode_toko===l.kode_toko&&m.area===STATE.filterArea);
+    return aOk && (!fStatus||l.status_kondisi===fStatus) && (!fKat||l.kategori===fKat);
+  });
+  rows.sort((a,b)=>{
+    const ord={'Kritis':0,'Perlu Perhatian':1,'Normal':2};
+    return (ord[a.status_kondisi]||9)-(ord[b.status_kondisi]||9)||b.tanggal.localeCompare(a.tanggal);
+  });
+  const clsMap={'Kritis':'log-kritis','Perlu Perhatian':'log-perhatian','Normal':'log-normal'};
+  const katClr={'Insiden':'badge-red','Keluhan':'badge-yellow','Operasional':'badge-blue','Penjualan':'badge-green'};
+  document.getElementById('log-feed').innerHTML = rows.map(l=>`
+    <div class="log-item ${clsMap[l.status_kondisi]||'log-normal'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge ${katClr[l.kategori]||'badge-gray'}">${l.kategori}</span>
+          <span style="font-weight:700;color:#0f172a;">${l.nama_toko}</span>
+          <span style="font-size:11px;color:#94a3b8;">${l.kode_toko}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge ${l.status_kondisi==='Kritis'?'badge-red':l.status_kondisi==='Perlu Perhatian'?'badge-yellow':'badge-green'}">${l.status_kondisi}</span>
+          <span class="ts">${l.tanggal} · ${l.input_oleh}</span>
+        </div>
+      </div>
+      <div style="font-size:13px;color:#334155;margin-bottom:${l.tindak_lanjut?'6px':'0'}">${l.deskripsi}</div>
+      ${l.tindak_lanjut?`<div style="font-size:12px;color:#64748b;background:rgba(0,0,0,0.03);padding:6px 10px;border-radius:6px;">→ <b>Tindak Lanjut:</b> ${l.tindak_lanjut}</div>`:''}
+    </div>`).join('') || '<div style="text-align:center;color:#94a3b8;padding:32px;">Tidak ada log yang cocok dengan filter.</div>';
+}
+
+// ========== RENDER CHECKLIST ARCO ==========
+function renderChecklist(){
+  const d      = STATE.data;
+  const rows   = (d.checklist_kunjungan||[]).filter(r => STATE.filterArea==='Semua' || r.area===STATE.filterArea);
+  const fKondisi = document.getElementById('filter-checklist-kondisi')?.value||'';
+  const filtered = fKondisi ? rows.filter(r=>r.kondisi_toko===fKondisi) : rows;
+
+  // Stats
+  const total   = rows.length;
+  const avgSkor = total ? Math.round(rows.reduce((s,r)=>s+(+r.skor_checklist||0),0)/total) : 0;
+  const normal  = rows.filter(r=>r.kondisi_toko==='Normal').length;
+  const kritis  = rows.filter(r=>r.kondisi_toko==='Kritis').length;
+  const perhatian = rows.filter(r=>r.kondisi_toko==='Perlu Perhatian').length;
+
+  document.getElementById('checklist-stat-row').innerHTML = [
+    `<div class="stat-box"><div class="val">${total}</div><div class="lbl">Total Kunjungan</div></div>`,
+    `<div class="stat-box"><div class="val" style="color:${avgSkor>=80?'#10b981':avgSkor>=60?'#f59e0b':'#ef4444'}">${avgSkor}%</div><div class="lbl">Avg Skor Checklist</div></div>`,
+    `<div class="stat-box"><div class="val" style="color:#10b981">${normal}</div><div class="lbl">Toko Normal</div></div>`,
+    `<div class="stat-box"><div class="val" style="color:#ef4444">${kritis}</div><div class="lbl">Toko Kritis</div></div>`,
+  ].join('');
+
+  // Tabel
+  const tindakanLabel = { selesai_tempat:'✅ Selesai di Tempat', follow_up:'📋 Follow-Up', eskalasi_om:'🚨 Eskalasi OM' };
+  const tindakanBadge = { selesai_tempat:'badge-green', follow_up:'badge-yellow', eskalasi_om:'badge-red' };
+  document.getElementById('checklist-body').innerHTML = filtered.sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).map(r=>{
+    const s = +r.skor_checklist||0;
+    const sc = s>=80?'badge-green':s>=60?'badge-yellow':'badge-red';
+    const kc = r.kondisi_toko==='Normal'?'badge-green':r.kondisi_toko==='Kritis'?'badge-red':'badge-yellow';
+    return `<tr>
+      <td class="ts">${r.tanggal}</td>
+      <td><div style="font-weight:600;color:#0f172a;">${r.nama_toko}</div><div style="font-size:11px;color:#94a3b8;">${r.kode_toko}</div></td>
+      <td>${r.nama_arco}</td>
+      <td><span class="badge ${sc}" style="font-size:13px;font-weight:800;padding:4px 10px;">${s}%</span></td>
+      <td><span class="badge ${kc}">${r.kondisi_toko}</span></td>
+      <td><span class="badge ${tindakanBadge[r.status_tindakan]||'badge-gray'}">${tindakanLabel[r.status_tindakan]||r.status_tindakan||'-'}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Tidak ada data.</td></tr>';
+
+  // Donut chart distribusi
+  mkDonutChart('chart-checklist-donut',
+    ['Normal (≥80%)', 'Perlu Perhatian (60-79%)', 'Kritis (<60%)'],
+    [normal, perhatian, kritis],
+    ['#22c55e','#f59e0b','#ef4444']
+  );
+
+  // Bar per area
+  const areaMap = {};
+  rows.forEach(r=>{
+    if(!areaMap[r.area]) areaMap[r.area]={sum:0,count:0};
+    areaMap[r.area].sum   += +r.skor_checklist||0;
+    areaMap[r.area].count += 1;
+  });
+  document.getElementById('area-checklist-bars').innerHTML = Object.entries(areaMap).map(([area,v])=>{
+    const avg = Math.round(v.sum/v.count);
+    const col = avg>=80?'#22c55e':avg>=60?'#f59e0b':'#ef4444';
+    return `<div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+        <span style="font-weight:600;color:#334155;">${area}</span>
+        <span style="font-weight:700;color:${col};">${avg}% <span style="color:#94a3b8;font-weight:400;font-size:11px;">(${v.count} kunjungan)</span></span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${avg}%;background:${col};"></div></div>
+    </div>`;
+  }).join('') || '<div style="color:#94a3b8;text-align:center;padding:16px;">Tidak ada data.</div>';
+}
+
+// ========== RENDER SKU SELISIH ==========
+function renderSKU(){
+  const d   = STATE.data;
+  const rows = (d.sku_sampling||[]).filter(r => STATE.filterArea==='Semua' || r.area===STATE.filterArea);
+  const fFilter = document.getElementById('filter-sku-status')?.value||'';
+
+  // Stats
+  const total       = rows.length;
+  const withSelisih = rows.filter(r=>r.selisih!==0).length;
+  const negCount    = rows.filter(r=>r.selisih<0).length;
+  const totalAbsol  = rows.reduce((s,r)=>s+Math.abs(+r.selisih||0),0);
+  const tokoSet     = new Set(rows.filter(r=>r.selisih!==0).map(r=>r.kode_toko));
+
+  document.getElementById('sku-stat-row').innerHTML = [
+    `<div class="stat-box"><div class="val">${total}</div><div class="lbl">Total SKU Dicek</div></div>`,
+    `<div class="stat-box"><div class="val" style="color:${withSelisih>0?'#ef4444':'#10b981'}">${withSelisih}</div><div class="lbl">SKU Ada Selisih</div></div>`,
+    `<div class="stat-box"><div class="val" style="color:#ef4444">${negCount}</div><div class="lbl">SKU Kurang (Fisik < POS)</div></div>`,
+    `<div class="stat-box"><div class="val">${tokoSet.size}</div><div class="lbl">Toko Terimbas</div></div>`,
+  ].join('');
+
+  // Top SKU bar chart (by absolute selisih)
+  const skuMap = {};
+  rows.filter(r=>r.selisih!==0).forEach(r=>{
+    const key = r.kode_sku + ' — ' + r.nama_produk;
+    skuMap[key] = (skuMap[key]||0) + Math.abs(+r.selisih||0);
+  });
+  const topSKU = Object.entries(skuMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  mkBarChart('chart-sku-bar',
+    topSKU.map(e=>e[0].split('—')[1]?.trim()||e[0]),
+    [{ label:'Selisih Absolut (unit)', data:topSKU.map(e=>e[1]),
+       backgroundColor: topSKU.map(()=>'#ef444466'), borderColor:'#ef4444', borderWidth:1.5, borderRadius:4 }]
+  );
+
+  // Per toko table
+  const tokoMap = {};
+  rows.forEach(r=>{
+    if(!tokoMap[r.kode_toko]) tokoMap[r.kode_toko]={nama:r.nama_toko,total:0,withSel:0,absol:0};
+    tokoMap[r.kode_toko].total++;
+    if(r.selisih!==0){ tokoMap[r.kode_toko].withSel++; tokoMap[r.kode_toko].absol+=Math.abs(+r.selisih||0); }
+  });
+  document.getElementById('sku-per-toko-body').innerHTML = Object.entries(tokoMap)
+    .sort((a,b)=>b[1].withSel-a[1].withSel).map(([kode,v])=>{
+      const ok = v.withSel===0;
+      return `<tr>
+        <td><div style="font-weight:600;">${v.nama}</div><div style="font-size:11px;color:#94a3b8;">${kode}</div></td>
+        <td style="text-align:center;">${v.total}</td>
+        <td style="text-align:center;"><span style="font-weight:700;color:${ok?'#10b981':'#ef4444'}">${v.withSel}</span></td>
+        <td style="text-align:center;font-weight:700;color:${v.absol>0?'#ef4444':'#10b981'}">${v.absol} unit</td>
+        <td><span class="badge ${ok?'badge-green':'badge-red'}">${ok?'✓ Sesuai':'⚠ Ada Selisih'}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Tidak ada data.</td></tr>';
+
+  // Detail table
+  let detail = rows;
+  if(fFilter==='selisih') detail = rows.filter(r=>r.selisih!==0);
+  if(fFilter==='sesuai')  detail = rows.filter(r=>r.selisih===0);
+  detail = detail.sort((a,b)=>Math.abs(+b.selisih||0)-Math.abs(+a.selisih||0));
+
+  document.getElementById('sku-detail-body').innerHTML = detail.map(r=>{
+    const sel = +r.selisih||0;
+    const selColor = sel<0?'#dc2626':sel>0?'#d97706':'#16a34a';
+    const selText  = sel>0?'+'+sel:String(sel);
+    const ket = sel<0?'Kurang (Fisik < POS)':sel>0?'Lebih (Fisik > POS)':'Sesuai';
+    const ketBadge = sel<0?'badge-red':sel>0?'badge-yellow':'badge-green';
+    return `<tr>
+      <td class="ts">${r.tanggal}</td>
+      <td><div style="font-weight:600;">${r.nama_toko}</div><div style="font-size:11px;color:#94a3b8;">${r.kode_toko}</div></td>
+      <td style="font-family:monospace;font-weight:600;">${r.kode_sku}</td>
+      <td>${r.nama_produk}</td>
+      <td style="text-align:center;">${r.stok_pos}</td>
+      <td style="text-align:center;">${r.stok_fisik}</td>
+      <td style="text-align:center;font-weight:800;color:${selColor};">${sel===0?'0':selText}</td>
+      <td><span class="badge ${ketBadge}">${ket}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px;">Tidak ada data.</td></tr>';
+}
+
+// ========== DATA LOADER ==========
+const isDemoUrl = url => !url || url.trim()==='PASTE_URL_CSV_DISINI';
+
+/**
+ * Normalisasi key hasil parse CSV dari Google Sheets.
+ * "Nama Toko" → "nama_toko"  |  "KodeToko" → "kodetoko"
+ * Sehingga header apapun di Google Sheets tetap bisa dibaca dashboard.
+ */
+function normRow(row){
+  const out = {};
+  for(const [k,v] of Object.entries(row)){
+    const nk = k.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+    out[nk] = (typeof v === 'string') ? v.trim() : v;
+  }
+  return out;
+}
+
+/**
+ * Fetch satu sheet sebagai array of normalized objects.
+ * Return null jika gagal (URL placeholder, network error, atau response bukan CSV).
+ */
+async function fetchCSV(url, label){
+  if(isDemoUrl(url)) return null;
+  try {
+    const resp = await fetch(url);
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    // Deteksi jika Google mengembalikan halaman HTML login (sheet belum dipublish)
+    if(text.trim().startsWith('<!') || text.trim().startsWith('<html')){
+      console.error('['+label+'] ⚠ Response adalah HTML, bukan CSV. Pastikan sheet sudah di-publish via File → Share → Publish to web → pilih format CSV.');
+      return null;
+    }
+    const rows = await new Promise(resolve =>
+      Papa.parse(text, { header:true, skipEmptyLines:true, complete: r => resolve(r.data) })
+    );
+    const normalized = rows.map(normRow);
+    console.log('['+label+'] ✓ ' + normalized.length + ' baris. Kolom:', normalized[0] ? Object.keys(normalized[0]).join(', ') : '(kosong)');
+    return normalized.length ? normalized : null; // null jika sheet kosong (hanya header)
+  } catch(err){
+    console.warn('['+label+'] ✗ Gagal:', err.message);
+    return null;
+  }
+}
+
+/** Update tampilan badge di sidebar */
+function setBadge(type, line1, line2){
+  const el = document.getElementById('demo-badge');
+  const t = {
+    demo:    { bg:'rgba(251,191,36,0.1)',  border:'rgba(251,191,36,0.2)',  c:'#fbbf24' },
+    loading: { bg:'rgba(99,102,241,0.1)',  border:'rgba(99,102,241,0.2)',  c:'#818cf8' },
+    ok:      { bg:'rgba(16,185,129,0.1)', border:'rgba(16,185,129,0.2)', c:'#34d399' },
+    error:   { bg:'rgba(239,68,68,0.1)',  border:'rgba(239,68,68,0.2)',  c:'#f87171' },
+  }[type] || {};
+  el.style.cssText = `margin:12px 16px;border-radius:7px;padding:8px 10px;display:block;`
+    + `background:${t.bg};border:1px solid ${t.border};`;
+  el.innerHTML = `<div style="color:${t.c};font-size:10px;font-weight:700;">${line1}</div>`
+    + (line2 ? `<div style="color:#94a3b8;font-size:10px;margin-top:2px;">${line2}</div>` : '');
+}
+
+async function loadAllData(){
+  const gs = CONFIG.google_sheets;
+  const allDemo = Object.values(gs).every(isDemoUrl);
+
+  // ── Mode Demo murni (semua URL masih placeholder) ──
+  if(allDemo){
+    STATE.usingDemo = true;
+    setBadge('demo','⚡ Mode Demo','Belum terhubung ke<br>Google Sheets');
+    rebuildAreaFilter();
+    const now = new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('last-update').textContent = 'Update: '+now;
+    renderActiveTab();
+    return;
+  }
+
+  // ── Mode Real (minimal 1 URL sudah diisi) ──
+  STATE.usingDemo = false;
+
+  // Peringatkan jika dibuka sebagai file:// lokal
+  if(location.protocol === 'file:'){
+    setBadge('error','⚠ Buka via Web Server','file:// tidak dapat fetch<br>Google Sheets di Chrome');
+  } else {
+    setBadge('loading','⟳ Memuat Data…','Mengambil dari<br>Google Sheets');
+  }
+
+  // Hapus data DEMO untuk setiap sheet yang sudah punya URL nyata,
+  // sehingga dashboard tidak bercampur data dummy + data asli.
+  const sheets = ['master_toko','kunjungan','daily_task','setoran','absensi','log_harian','checklist_kunjungan','sku_sampling'];
+  sheets.forEach(k => { if(!isDemoUrl(gs[k])) STATE.data[k] = []; });
+
+  // Fetch semua sheet secara paralel
+  const [masterToko, kunjungan, dailyTask, setoran, absensi,
+         logHarian, checklist, sku] = await Promise.all([
+    fetchCSV(gs.master_toko,         'MASTER_TOKO'),
+    fetchCSV(gs.kunjungan,           'KUNJUNGAN'),
+    fetchCSV(gs.daily_task,          'DAILY_TASK'),
+    fetchCSV(gs.setoran,             'SETORAN'),
+    fetchCSV(gs.absensi,             'ABSENSI'),
+    fetchCSV(gs.log_harian,          'LOG_HARIAN'),
+    fetchCSV(gs.checklist_kunjungan, 'CHECKLIST'),
+    fetchCSV(gs.sku_sampling,        'SKU_SAMPLING'),
+  ]);
+
+  // Hitung berapa sheet yang berhasil di-fetch
+  const hasil = {masterToko, kunjungan, dailyTask, setoran, absensi, logHarian, checklist, sku};
+  const sukses = Object.values(hasil).filter(Boolean).length;
+  const total  = Object.values(gs).filter(u => !isDemoUrl(u)).length;
+
+  // Masukkan data asli ke STATE
+  if(masterToko) STATE.data.master_toko = masterToko;
+  if(kunjungan)  STATE.data.kunjungan   = kunjungan;
+  if(dailyTask)  STATE.data.daily_task  = dailyTask;
+  if(setoran)    STATE.data.setoran     = setoran.map(r=>({
+    ...r, jumlah_setoran:+(r.jumlah_setoran||0), target_setoran:+(r.target_setoran||0)
+  }));
+  if(absensi)    STATE.data.absensi     = absensi;
+  if(logHarian)  STATE.data.log_harian  = logHarian;
+  if(checklist)  STATE.data.checklist_kunjungan = checklist.map(r=>({
+    ...r, skor_checklist:+(r.skor_checklist||0)
+  }));
+  if(sku)        STATE.data.sku_sampling = sku.map(r=>({
+    ...r, stok_pos:+(r.stok_pos||0), stok_fisik:+(r.stok_fisik||0), selisih:+(r.selisih||0)
+  }));
+
+  // Tampilkan status badge
+  if(sukses === 0){
+    setBadge('error','✗ Gagal Terhubung','Sheet belum dipublish?<br>Cek konsol browser (F12)');
+  } else if(sukses < total){
+    setBadge('ok','✓ '+sukses+'/'+total+' Sheet Aktif','Sebagian sheet berhasil<br>dimuat dari Sheets');
+    setTimeout(()=>{ document.getElementById('demo-badge').style.display='none'; }, 4000);
+  } else {
+    setBadge('ok','✓ Semua Data Aktif','Terhubung ke<br>Google Sheets');
+    setTimeout(()=>{ document.getElementById('demo-badge').style.display='none'; }, 4000);
+  }
+
+  // Rebuild filter area dari data yang baru dimuat
+  rebuildAreaFilter();
+
+  const now = new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('last-update').textContent = 'Update: '+now;
+  renderActiveTab();
+}
+
+setInterval(loadAllData, CONFIG.refresh_interval_ms);
+loadAllData();
+</script>
+</body>
+</html>
