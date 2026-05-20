@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Absensi Karyawan</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; min-height: 100vh; }
+
+  /* ===== KONFIGURASI — GANTI BAGIAN INI ===== */
+  /* APPS_SCRIPT_URL diisi setelah deploy Apps Script (lihat panduan) */
+
+  .header {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    padding: 20px 20px 28px;
+    text-align: center;
+    position: relative;
+  }
+  .header-logo { font-size: 28px; margin-bottom: 6px; }
+  .header h1 { color: white; font-size: 18px; font-weight: 800; }
+  .header p  { color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 4px; }
+  .header-time {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(255,255,255,0.15); border-radius: 8px;
+    padding: 6px 10px; text-align: right;
+  }
+  .header-time .t { color: white; font-size: 16px; font-weight: 700; font-family: monospace; }
+  .header-time .d { color: rgba(255,255,255,0.7); font-size: 10px; }
+
+  .card {
+    background: white;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    min-height: calc(100vh - 120px);
+    margin-top: -12px;
+  }
+
+  /* FORM FIELDS */
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block; font-size: 11px; font-weight: 700; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px;
+  }
+  .field label .req { color: #ef4444; margin-left: 2px; }
+  .field select, .field input[type="text"] {
+    width: 100%; padding: 13px 14px; border: 1.5px solid #e2e8f0;
+    border-radius: 10px; font-size: 15px; font-family: inherit;
+    color: #0f172a; background: white; outline: none;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+    transition: border-color 0.15s;
+  }
+  .field input[type="text"] { background-image: none; }
+  .field select:focus, .field input[type="text"]:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+  .field select option { font-size: 15px; }
+
+  /* DIVIDER */
+  .divider { display: flex; align-items: center; gap: 10px; margin: 20px 0; }
+  .divider hr { flex:1; border:none; border-top:1px solid #f1f5f9; }
+  .divider span { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap; }
+
+  /* CAMERA SECTION */
+  .camera-section { margin-bottom: 20px; }
+  #camera-preview-wrap {
+    position: relative; width: 100%; aspect-ratio: 1/1;
+    border-radius: 14px; overflow: hidden; background: #0f172a;
+    border: 2px dashed #e2e8f0;
+  }
+  #camera-preview {
+    width: 100%; height: 100%; object-fit: cover;
+    transform: scaleX(-1); /* mirror selfie */
+  }
+  #photo-result {
+    display: none; width: 100%; height: 100%;
+    object-fit: cover; border-radius: 12px;
+  }
+  .camera-overlay {
+    position: absolute; bottom: 12px; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 16px;
+  }
+  .cam-btn {
+    padding: 10px 20px; border-radius: 50px; border: none;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: inherit; display: flex; align-items: center; gap: 6px;
+    transition: all 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  #btn-capture { background: white; color: #0f172a; }
+  #btn-retake  { background: rgba(255,255,255,0.15); color: white; display:none; }
+  #btn-capture:active { transform: scale(0.96); }
+
+  /* PHOTO PLACEHOLDER */
+  .photo-placeholder {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; gap: 10px;
+    color: #94a3b8; padding: 20px; text-align: center;
+  }
+  .photo-placeholder .icon { font-size: 40px; }
+  .photo-placeholder p { font-size: 13px; line-height: 1.5; }
+
+  /* STATUS SELECTOR */
+  .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .status-opt {
+    border: 2px solid #e2e8f0; border-radius: 10px; padding: 12px 10px;
+    text-align: center; cursor: pointer; transition: all 0.15s;
+  }
+  .status-opt .s-icon { font-size: 22px; margin-bottom: 4px; }
+  .status-opt .s-label { font-size: 12px; font-weight: 700; color: #475569; }
+  .status-opt input[type="radio"] { display: none; }
+  .status-opt.selected-hadir    { border-color: #22c55e; background: #f0fdf4; }
+  .status-opt.selected-hadir    .s-label { color: #15803d; }
+  .status-opt.selected-terlambat{ border-color: #f59e0b; background: #fffbeb; }
+  .status-opt.selected-terlambat .s-label { color: #a16207; }
+  .status-opt.selected-izin     { border-color: #6366f1; background: #eef2ff; }
+  .status-opt.selected-izin     .s-label { color: #4f46e5; }
+  .status-opt.selected-sakit    { border-color: #8b5cf6; background: #f5f3ff; }
+  .status-opt.selected-sakit    .s-label { color: #7c3aed; }
+  .status-opt.selected-alpha    { border-color: #ef4444; background: #fff1f2; }
+  .status-opt.selected-alpha    .s-label { color: #dc2626; }
+
+  /* SUBMIT */
+  #btn-submit {
+    width: 100%; padding: 16px; background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white; border: none; border-radius: 12px; font-size: 16px;
+    font-weight: 700; font-family: inherit; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.15s; margin-top: 8px;
+  }
+  #btn-submit:active { transform: scale(0.98); opacity: 0.9; }
+  #btn-submit:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; transform: none; }
+
+  /* PROGRESS */
+  .progress-wrap { display: none; margin-top: 16px; }
+  .progress-bar { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 3px; transition: width 0.4s; width: 0%; }
+  .progress-label { font-size: 12px; color: #64748b; text-align: center; margin-top: 8px; }
+
+  /* SUCCESS / ERROR */
+  .result-screen {
+    display: none; position: fixed; inset: 0; background: white;
+    z-index: 100; flex-direction: column; align-items: center;
+    justify-content: center; padding: 32px; text-align: center;
+  }
+  .result-icon { font-size: 72px; margin-bottom: 20px; }
+  .result-title { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+  .result-sub { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 28px; }
+  .result-detail { background: #f8fafc; border-radius: 12px; padding: 16px; width: 100%; text-align: left; margin-bottom: 24px; }
+  .result-detail .rd-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+  .result-detail .rd-row:last-child { border-bottom: none; }
+  .result-detail .rd-key { color: #94a3b8; font-weight: 500; }
+  .result-detail .rd-val { color: #0f172a; font-weight: 700; }
+  .btn-again { width: 100%; padding: 14px; background: #6366f1; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  /* ALERT */
+  .alert { border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  .alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+  .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+
+  .section-label {
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== KONFIGURASI ===== -->
+<script>
+// GANTI dengan URL Google Apps Script Anda setelah deploy
+// Lihat file: apps-script-absensi.gs → Deploy → Web App → Copy URL
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwPVZuNFqv6kXHalkiBmTQaMCT7hAh3p4TPDW3h-k0PiIZ1TxgkbXd-gPzeEaV1s3Ifmw/exec";
+
+// Daftar toko (sesuaikan dengan toko Anda)
+const DAFTAR_TOKO = [
+  { kode: "JKT-001", nama: "Toko Senen" },
+  { kode: "JKT-002", nama: "Toko Cempaka Putih" },
+  { kode: "JKT-003", nama: "Toko Kelapa Gading" },
+  { kode: "JKT-004", nama: "Toko Bekasi Barat" },
+  { kode: "JKT-005", nama: "Toko Depok Timur" },
+  { kode: "JKT-006", nama: "Toko Tangerang Selatan" },
+  { kode: "JKT-007", nama: "Toko Bogor Tengah" },
+  { kode: "JBR-001", nama: "Toko Bandung Kota" },
+  { kode: "JBR-002", nama: "Toko Cimahi" },
+  { kode: "JBR-003", nama: "Toko Sukabumi" },
+  { kode: "JBR-004", nama: "Toko Cirebon Utara" },
+  { kode: "JBR-005", nama: "Toko Karawang" },
+  { kode: "JBR-006", nama: "Toko Purwakarta" },
+  { kode: "JTG-001", nama: "Toko Semarang Tengah" },
+  { kode: "JTG-002", nama: "Toko Ungaran" },
+  { kode: "JTG-003", nama: "Toko Solo Baru" },
+  { kode: "JTG-004", nama: "Toko Yogyakarta Kota" },
+  { kode: "JTG-005", nama: "Toko Magelang" },
+  { kode: "JTG-006", nama: "Toko Purwokerto" },
+  { kode: "JTM-001", nama: "Toko Surabaya Pusat" },
+  { kode: "JTM-002", nama: "Toko Sidoarjo" },
+  { kode: "JTM-003", nama: "Toko Malang Kota" },
+  { kode: "JTM-004", nama: "Toko Gresik" },
+  { kode: "JTM-005", nama: "Toko Mojokerto" },
+];
+</script>
+
+<!-- ===== HEADER ===== -->
+<div class="header">
+  <div class="header-logo">🏪</div>
+  <h1>Absensi Karyawan</h1>
+  <p>PT. Makmur Sejahtera Retail</p>
+  <div class="header-time">
+    <div class="t" id="clock">--:--:--</div>
+    <div class="d" id="clock-date">--</div>
+  </div>
+</div>
+
+<!-- ===== FORM CARD ===== -->
+<div class="card">
+
+  <div class="alert alert-info">
+    <span>ℹ️</span>
+    <span>Timestamp akan direkam otomatis saat Anda menekan <strong>Kirim Absensi</strong>. Pastikan kamera menghadap wajah Anda dengan jelas.</span>
+  </div>
+
+  <form id="absensi-form" onsubmit="submitAbsensi(event)">
+
+    <!-- TOKO -->
+    <div class="field">
+      <label>Toko <span class="req">*</span></label>
+      <select id="kode_toko" required>
+        <option value="">— Pilih Toko —</option>
+      </select>
+    </div>
+
+    <!-- NAMA KARYAWAN -->
+    <div class="field">
+      <label>Nama Lengkap <span class="req">*</span></label>
+      <input type="text" id="nama_karyawan" placeholder="Contoh: Ratna Dewi" required autocomplete="name">
+    </div>
+
+    <!-- JABATAN -->
+    <div class="field">
+      <label>Jabatan <span class="req">*</span></label>
+      <select id="jabatan" required>
+        <option value="">— Pilih Jabatan —</option>
+        <option value="Store Leader">Store Leader</option>
+        <option value="Pramuniaga">Pramuniaga</option>
+        <option value="Kasir">Kasir</option>
+      </select>
+    </div>
+
+    <!-- SHIFT -->
+    <div class="field">
+      <label>Shift <span class="req">*</span></label>
+      <select id="shift" required>
+        <option value="">— Pilih Shift —</option>
+        <option value="Pagi">Pagi (06:00 – 14:00)</option>
+        <option value="Siang">Siang (14:00 – 22:00)</option>
+        <option value="Malam">Malam (22:00 – 06:00)</option>
+      </select>
+    </div>
+
+    <div class="divider"><hr><span>Status Kehadiran</span><hr></div>
+
+    <!-- STATUS -->
+    <div class="field">
+      <div class="status-grid">
+        <label class="status-opt" id="opt-hadir" onclick="selectStatus('Hadir')">
+          <input type="radio" name="status" value="Hadir">
+          <div class="s-icon">✅</div>
+          <div class="s-label">Hadir</div>
+        </label>
+        <label class="status-opt" id="opt-terlambat" onclick="selectStatus('Terlambat')">
+          <input type="radio" name="status" value="Terlambat">
+          <div class="s-icon">⏰</div>
+          <div class="s-label">Terlambat</div>
+        </label>
+        <label class="status-opt" id="opt-izin" onclick="selectStatus('Izin')">
+          <input type="radio" name="status" value="Izin">
+          <div class="s-icon">📋</div>
+          <div class="s-label">Izin</div>
+        </label>
+        <label class="status-opt" id="opt-sakit" onclick="selectStatus('Sakit')">
+          <input type="radio" name="status" value="Sakit">
+          <div class="s-icon">🤒</div>
+          <div class="s-label">Sakit</div>
+        </label>
+      </div>
+    </div>
+
+    <!-- KETERANGAN (muncul jika bukan Hadir/Terlambat) -->
+    <div class="field" id="field-keterangan" style="display:none;">
+      <label>Keterangan <span class="req">*</span></label>
+      <input type="text" id="keterangan" placeholder="Contoh: Izin menikah kakak / Demam sejak kemarin">
+    </div>
+
+    <div class="divider"><hr><span>Foto Selfie</span><hr></div>
+
+    <!-- KAMERA -->
+    <div class="camera-section">
+      <div id="camera-preview-wrap">
+        <div class="photo-placeholder" id="photo-placeholder">
+          <div class="icon">📷</div>
+          <p>Tekan tombol kamera di bawah untuk mengaktifkan kamera dan ambil foto selfie</p>
+        </div>
+        <video id="camera-preview" autoplay playsinline style="display:none;"></video>
+        <img id="photo-result" alt="Foto absensi">
+        <div class="camera-overlay" id="camera-controls" style="display:none;">
+          <button type="button" class="cam-btn" id="btn-capture" onclick="capturePhoto()">📸 Ambil Foto</button>
+          <button type="button" class="cam-btn" id="btn-retake"  onclick="retakePhoto()">🔄 Ulang</button>
+        </div>
+      </div>
+      <button type="button" id="btn-camera" onclick="startCamera()"
+        style="width:100%;margin-top:12px;padding:12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:600;color:#475569;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+        📷 Aktifkan Kamera
+      </button>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;">
+        Foto diperlukan sebagai bukti kehadiran. Wajah harus terlihat jelas.
+      </p>
+    </div>
+
+    <!-- SUBMIT -->
+    <button type="submit" id="btn-submit" disabled>
+      <span id="submit-icon">✅</span>
+      <span id="submit-label">Kirim Absensi</span>
+    </button>
+
+    <!-- PROGRESS -->
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-label" id="progress-label">Mengirim data...</div>
+    </div>
+
+  </form>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div class="result-screen" id="result-ok">
+  <div class="result-icon">🎉</div>
+  <div class="result-title">Absensi Tercatat!</div>
+  <div class="result-sub">Data Anda berhasil disimpan ke sistem.<br>Timestamp direkam otomatis oleh server.</div>
+  <div class="result-detail" id="result-detail"></div>
+  <button class="btn-again" onclick="resetForm()">Input Karyawan Berikutnya</button>
+</div>
+
+<div class="result-screen" id="result-err">
+  <div class="result-icon">❌</div>
+  <div class="result-title">Gagal Mengirim</div>
+  <div class="result-sub" id="err-msg">Terjadi kesalahan. Pastikan koneksi internet aktif dan coba lagi.</div>
+  <button class="btn-again" onclick="document.getElementById('result-err').style.display='none';" style="background:#ef4444;">Coba Lagi</button>
+</div>
+
+<script>
+// ===== CLOCK =====
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  document.getElementById('clock-date').textContent =
+    now.toLocaleDateString('id-ID', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===== POPULATE TOKO DROPDOWN =====
+(function() {
+  const sel = document.getElementById('kode_toko');
+  DAFTAR_TOKO.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.kode;
+    opt.textContent = t.kode + ' — ' + t.nama;
+    sel.appendChild(opt);
+  });
+})();
+
+// ===== STATUS SELECTION =====
+let selectedStatus = '';
+function selectStatus(s) {
+  selectedStatus = s;
+  ['hadir','terlambat','izin','sakit'].forEach(x => {
+    document.getElementById('opt-'+x).className = 'status-opt';
+  });
+  document.getElementById('opt-'+s.toLowerCase()).className =
+    'status-opt selected-' + s.toLowerCase();
+
+  const needKet = (s === 'Izin' || s === 'Sakit');
+  document.getElementById('field-keterangan').style.display = needKet ? 'block' : 'none';
+  if (!needKet) document.getElementById('keterangan').value = '';
+  if (s === 'Izin' || s === 'Sakit') {
+    // Foto opsional untuk izin/sakit
+    checkSubmitReady();
+  }
+  checkSubmitReady();
+}
+
+// ===== CAMERA =====
+let stream = null;
+let photoDataURL = null;
+let photoBlob = null;
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
+      audio: false
+    });
+    const video = document.getElementById('camera-preview');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('photo-placeholder').style.display = 'none';
+    document.getElementById('photo-result').style.display = 'none';
+    document.getElementById('camera-controls').style.display = 'flex';
+    document.getElementById('btn-camera').style.display = 'none';
+    document.getElementById('btn-capture').style.display = 'flex';
+    document.getElementById('btn-retake').style.display = 'none';
+  } catch(e) {
+    alert('Kamera tidak dapat diakses.\n\nPastikan:\n• Izin kamera sudah diberikan di browser\n• Tidak ada aplikasi lain yang menggunakan kamera\n\nError: ' + e.message);
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('camera-preview');
+  const canvas = document.createElement('canvas');
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 640;
+  const ctx = canvas.getContext('2d');
+  // Mirror correction saat simpan (stream di-mirror di CSS, ini mengembalikan ke normal)
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+
+  // Kompres jadi JPEG 80%
+  canvas.toBlob(blob => {
+    photoBlob = blob;
+    photoDataURL = canvas.toDataURL('image/jpeg', 0.8);
+    // Tampilkan preview
+    const img = document.getElementById('photo-result');
+    img.src = photoDataURL;
+    img.style.display = 'block';
+    img.style.transform = 'scaleX(-1)'; // tampilkan mirror untuk kenyamanan user
+    video.style.display = 'none';
+    document.getElementById('btn-capture').style.display = 'none';
+    document.getElementById('btn-retake').style.display = 'flex';
+    // Stop stream kamera
+    if(stream) stream.getTracks().forEach(t => t.stop());
+    checkSubmitReady();
+  }, 'image/jpeg', 0.8);
+}
+
+function retakePhoto() {
+  photoDataURL = null;
+  photoBlob = null;
+  document.getElementById('photo-result').style.display = 'none';
+  document.getElementById('photo-result').style.transform = '';
+  startCamera();
+  checkSubmitReady();
+}
+
+// ===== SUBMIT READY CHECK =====
+function checkSubmitReady() {
+  const kode  = document.getElementById('kode_toko').value;
+  const nama  = document.getElementById('nama_karyawan').value.trim();
+  const jab   = document.getElementById('jabatan').value;
+  const shft  = document.getElementById('shift').value;
+  const ket   = document.getElementById('keterangan').value.trim();
+  const needKet = (selectedStatus === 'Izin' || selectedStatus === 'Sakit');
+  const fotoOk  = !!photoDataURL || needKet; // foto wajib kecuali izin/sakit
+
+  const ready = kode && nama && jab && shft && selectedStatus &&
+                (!needKet || ket) && fotoOk;
+  document.getElementById('btn-submit').disabled = !ready;
+}
+// Attach change listeners
+['kode_toko','nama_karyawan','jabatan','shift','keterangan'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('input', checkSubmitReady);
+});
+
+// ===== SUBMIT =====
+async function submitAbsensi(e) {
+  e.preventDefault();
+
+  const kode   = document.getElementById('kode_toko').value;
+  const toko   = DAFTAR_TOKO.find(t => t.kode === kode);
+  const nama   = document.getElementById('nama_karyawan').value.trim();
+  const jab    = document.getElementById('jabatan').value;
+  const shft   = document.getElementById('shift').value;
+  const ket    = document.getElementById('keterangan').value.trim();
+
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'PASTE_APPS_SCRIPT_URL_DISINI') {
+    alert('⚠️ APPS_SCRIPT_URL belum dikonfigurasi.\nBuka file ini dengan text editor dan isi URL Apps Script Anda.');
+    return;
+  }
+
+  // UI loading
+  const btnSubmit = document.getElementById('btn-submit');
+  btnSubmit.disabled = true;
+  document.getElementById('submit-icon').textContent = '⏳';
+  document.getElementById('submit-label').textContent = 'Mengirim...';
+  const pw = document.getElementById('progress-wrap');
+  pw.style.display = 'block';
+  setProgress(10, 'Menyiapkan data...');
+
+  try {
+    // Konversi foto ke base64
+    let fotoBase64 = '';
+    if (photoDataURL) {
+      fotoBase64 = photoDataURL.split(',')[1]; // hilangkan header data:image/...
+    }
+    setProgress(30, 'Mengupload foto ke Google Drive...');
+
+    // Kirim ke Apps Script
+    const payload = {
+      kode_toko:       kode,
+      nama_toko:       toko ? toko.nama : kode,
+      nama_karyawan:   nama,
+      jabatan:         jab,
+      shift:           shft,
+      status_kehadiran:selectedStatus,
+      keterangan:      ket,
+      foto_base64:     fotoBase64,
+      // Timestamp dikirim dari client sebagai fallback, tapi server akan override
+      client_ts: new Date().toISOString()
+    };
+
+    setProgress(60, 'Menyimpan ke Google Sheets...');
+
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain' } // Apps Script butuh text/plain untuk CORS
+    });
+
+    const result = await response.json();
+    setProgress(100, 'Selesai!');
+
+    if (result.status === 'ok') {
+      // Tampilkan success screen
+      showSuccess({
+        kode_toko:        kode,
+        nama_toko:        toko ? toko.nama : kode,
+        nama_karyawan:    nama,
+        jabatan:          jab,
+        shift:            shft,
+        status_kehadiran: selectedStatus,
+        jam_masuk:        result.jam_masuk,
+        tanggal:          result.tanggal,
+        foto_url:         result.foto_url
+      });
+    } else {
+      throw new Error(result.message || 'Server error');
+    }
+
+  } catch (err) {
+    setProgress(0, '');
+    pw.style.display = 'none';
+    document.getElementById('err-msg').textContent =
+      'Gagal mengirim: ' + err.message + '\n\nPastikan koneksi internet aktif.';
+    document.getElementById('result-err').style.display = 'flex';
+    btnSubmit.disabled = false;
+    document.getElementById('submit-icon').textContent = '✅';
+    document.getElementById('submit-label').textContent = 'Kirim Absensi';
+  }
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function showSuccess(data) {
+  const detail = document.getElementById('result-detail');
+  const statusEmoji = {Hadir:'✅',Terlambat:'⏰',Izin:'📋',Sakit:'🤒',Alpha:'❌'}[data.status_kehadiran]||'📋';
+  detail.innerHTML = [
+    ['Tanggal',  data.tanggal],
+    ['Jam Masuk (Timestamp)',  '⏱️ ' + data.jam_masuk + ' (Server)'],
+    ['Toko',     data.kode_toko + ' — ' + data.nama_toko],
+    ['Karyawan', data.nama_karyawan],
+    ['Jabatan',  data.jabatan],
+    ['Shift',    data.shift],
+    ['Status',   statusEmoji + ' ' + data.status_kehadiran],
+    data.foto_url ? ['Foto',  '<a href="'+data.foto_url+'" target="_blank" style="color:#6366f1;text-decoration:none;font-weight:700;">Lihat Foto →</a>'] : null,
+  ].filter(Boolean).map(([k,v]) =>
+    `<div class="rd-row"><span class="rd-key">${k}</span><span class="rd-val">${v}</span></div>`
+  ).join('');
+
+  document.getElementById('result-ok').style.display = 'flex';
+}
+
+function resetForm() {
+  document.getElementById('result-ok').style.display = 'none';
+  document.getElementById('absensi-form').reset();
+  selectedStatus = '';
+  photoDataURL = null;
+  photoBlob = null;
+  ['hadir','terlambat','izin','sakit'].forEach(x =>
+    document.getElementById('opt-'+x).className = 'status-opt');
+  document.getElementById('field-keterangan').style.display = 'none';
+  document.getElementById('photo-placeholder').style.display = 'flex';
+  document.getElementById('camera-preview').style.display = 'none';
+  document.getElementById('photo-result').style.display = 'none';
+  document.getElementById('camera-controls').style.display = 'none';
+  document.getElementById('btn-camera').style.display = 'flex';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('btn-submit').disabled = true;
+  document.getElementById('submit-icon').textContent = '✅';
+  document.getElementById('submit-label').textContent = 'Kirim Absensi';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
+</body>
+</html>
