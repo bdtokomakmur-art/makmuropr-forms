@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Centre — Toko Makmur</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --indigo-deep:  #1E1B4B;
+      --indigo-mid:   #312E81;
+      --indigo-soft:  #4F46E5;
+      --gold:         #D97706;
+      --gold-light:   #FEF3C7;
+      --emerald:      #059669;
+      --emerald-bg:   #ECFDF5;
+      --amber:        #D97706;
+      --amber-bg:     #FFFBEB;
+      --rose:         #DC2626;
+      --rose-bg:      #FFF1F2;
+      --slate-bg:     #F1F5F9;
+      --card-border:  #E2E8F0;
+    }
+    body { background: var(--slate-bg); font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Login */
+    #login-screen { background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #1E40AF 100%); }
+    .login-card { backdrop-filter: blur(20px); }
+
+    /* Header */
+    #dash-header { background: linear-gradient(90deg, var(--indigo-deep) 0%, var(--indigo-mid) 100%); }
+
+    /* Cards */
+    .card { background: white; border-radius: 16px; border: 1px solid var(--card-border); box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04); }
+    .card-hover { transition: box-shadow .2s, transform .15s; }
+    .card-hover:hover { box-shadow: 0 8px 25px rgba(0,0,0,.10); transform: translateY(-1px); }
+
+    /* KPI Cards */
+    .kpi { position: relative; overflow: hidden; }
+    .kpi::before { content:''; position:absolute; top:-30px; right:-30px; width:100px; height:100px; border-radius:50%; opacity:.06; }
+    .kpi-submit::before    { background:#059669; }
+    .kpi-skor::before      { background:#4F46E5; }
+    .kpi-kunjungan::before { background:#D97706; }
+    .kpi-status::before    { background:#DC2626; }
+    .kpi-integritas::before{ background:#0891B2; }
+
+    /* Trend badges */
+    .trend-up   { color: #059669; background:#ECFDF5; padding:2px 7px; border-radius:99px; font-size:11px; font-weight:700; }
+    .trend-down { color: #DC2626; background:#FFF1F2; padding:2px 7px; border-radius:99px; font-size:11px; font-weight:700; }
+    .trend-flat { color: #6B7280; background:#F3F4F6; padding:2px 7px; border-radius:99px; font-size:11px; font-weight:700; }
+
+    /* Grade pills */
+    .g-A { background:#ECFDF5; color:#065F46; font-weight:800; }
+    .g-B { background:#EFF6FF; color:#1E40AF; font-weight:800; }
+    .g-C { background:#FFFBEB; color:#92400E; font-weight:800; }
+    .g-D { background:#FFF1F2; color:#991B1B; font-weight:800; }
+
+    /* Cluster pills */
+    .cl-A  { background:#FEF3C7; color:#78350F; font-weight:800; border:1px solid #F59E0B; }
+    .cl-Bp { background:#EFF6FF; color:#1E40AF; font-weight:800; border:1px solid #93C5FD; }
+    .cl-B  { background:#ECFDF5; color:#065F46; font-weight:800; border:1px solid #6EE7B7; }
+    .cl-C  { background:#F3F4F6; color:#374151; font-weight:800; border:1px solid #D1D5DB; }
+
+    /* Cluster analytics card */
+    .cl-row { display:grid; grid-template-columns:80px 1fr 1fr 1fr 1fr; align-items:center; padding:10px 14px; border-bottom:1px solid #F1F5F9; gap:8px; }
+    .cl-row:last-child { border-bottom:none; }
+    .cl-row:hover { background:#FAFBFF; }
+    .cl-bar-wrap { background:#F1F5F9; border-radius:99px; height:6px; flex:1; overflow:hidden; }
+    .cl-bar-fill { height:6px; border-radius:99px; transition:width .6s; }
+
+    /* Status pills */
+    .p-green  { background:#ECFDF5; color:#065F46; }
+    .p-yellow { background:#FFFBEB; color:#92400E; }
+    .p-red    { background:#FFF1F2; color:#991B1B; }
+    .p-gray   { background:#F3F4F6; color:#6B7280; }
+    .p-blue   { background:#EFF6FF; color:#1E40AF; }
+    .pill { display:inline-flex; align-items:center; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; white-space:nowrap; }
+
+    /* Pulse Eksekutif */
+    #pulse-panel { background: linear-gradient(135deg, #1E1B4B, #312E81); border-radius:16px; color:white; }
+
+    /* Table */
+    .tbl thead th { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#94A3B8; font-weight:700; padding:11px 14px; background:#F8FAFC; position:sticky; top:0; z-index:1; border-bottom:2px solid #E2E8F0; }
+    .tbl tbody td { font-size:13px; padding:10px 14px; border-bottom:1px solid #F1F5F9; vertical-align:middle; }
+    .tbl tbody tr:hover td { background:#FAFBFF; }
+
+    /* Alert items */
+    .alert-item { padding:10px 14px; border-radius:12px; margin-bottom:8px; border-left:4px solid; }
+    .alert-kritis  { background:#FFF1F2; border-color:#DC2626; }
+    .alert-diskrepansi { background:#FFF7ED; border-color:#EA580C; }
+    .alert-perhatian { background:#FFFBEB; border-color:#D97706; }
+    .alert-info    { background:#F8FAFC; border-color:#94A3B8; }
+
+    /* Progress bar */
+    .prog-bar { height:6px; border-radius:99px; background:#E2E8F0; overflow:hidden; }
+    .prog-fill { height:100%; border-radius:99px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+    /* Scroll */
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:#F1F5F9; }
+    ::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:99px; }
+
+    /* Clock */
+    #live-clock { font-variant-numeric: tabular-nums; }
+
+    /* Top/Bottom toko rows */
+    .rank-row { display:flex; align-items:center; padding:10px 0; border-bottom:1px solid #F1F5F9; gap:12px; }
+    .rank-row:last-child { border-bottom:none; }
+
+    @media print {
+      #login-screen, #dash-header button { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════ LOGIN SCREEN ═══════ -->
+<div id="login-screen" class="fixed inset-0 flex items-center justify-center z-50 p-4">
+  <!-- Decorative circles -->
+  <div class="absolute top-0 left-0 w-96 h-96 rounded-full opacity-10" style="background:radial-gradient(circle,#818CF8,transparent);transform:translate(-30%,-30%)"></div>
+  <div class="absolute bottom-0 right-0 w-80 h-80 rounded-full opacity-10" style="background:radial-gradient(circle,#A78BFA,transparent);transform:translate(30%,30%)"></div>
+
+  <div class="login-card bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 relative z-10">
+    <div class="text-center mb-7">
+      <div class="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
+           style="background:linear-gradient(135deg,#1E1B4B,#4F46E5)">📊</div>
+      <h1 class="text-xl font-black text-gray-900 tracking-tight">Command Centre</h1>
+      <p class="text-sm text-gray-400 mt-1 font-medium">Toko Makmur · Akses COO / CEO</p>
+    </div>
+
+    <div class="space-y-3">
+      <input id="pass-input" type="password" placeholder="Masukkan password akses"
+        autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()"
+        class="w-full border-2 border-gray-100 rounded-2xl px-4 py-3 text-sm focus:border-indigo-400 focus:outline-none text-center tracking-widest bg-gray-50 transition"
+        style="letter-spacing:.15em">
+
+      <button onclick="doLogin()" id="login-btn"
+        class="w-full text-white py-3.5 rounded-2xl font-bold text-sm transition hover:opacity-90 active:scale-95"
+        style="background:linear-gradient(135deg,#1E1B4B,#4F46E5)">
+        Masuk ke Dashboard →
+      </button>
+
+      <p id="login-error" class="text-red-500 text-xs text-center hidden font-medium">
+        ❌ Password salah. Coba lagi.
+      </p>
+    </div>
+
+    <p class="text-gray-300 text-xs text-center mt-6">🔒 Restricted access — do not share this URL</p>
+  </div>
+</div>
+
+<!-- ═══════ DASHBOARD ═══════ -->
+<div id="dashboard" class="hidden min-h-screen">
+
+  <!-- Header -->
+  <div id="dash-header" class="text-white px-5 py-3 flex items-center justify-between gap-4 sticky top-0 z-30">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base bg-white/10">📊</div>
+      <div>
+        <div class="font-black text-sm tracking-wide leading-tight">TOKO MAKMUR — Command Centre</div>
+        <div class="text-indigo-300 text-xs" id="header-date"></div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="text-indigo-200 text-xs hidden md:flex items-center gap-1">
+        🕐 <span id="live-clock" class="font-mono"></span>
+      </div>
+      <div class="h-4 w-px bg-white/20 hidden md:block"></div>
+      <span class="text-indigo-300 text-xs">Diperbarui: <span id="updated-at">—</span></span>
+      <button onclick="loadData()" id="refresh-btn"
+        class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+        🔄 <span class="hidden md:inline">Refresh</span>
+      </button>
+      <button onclick="doLogout()"
+        class="text-indigo-300 hover:text-white text-xs px-2 py-1.5 rounded-lg transition">
+        Keluar
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="bg-white border-b border-gray-100 px-5 py-2.5 flex flex-wrap items-center gap-2 sticky top-[52px] z-20 shadow-sm">
+    <span class="text-xs font-bold text-gray-300 uppercase tracking-wide">Filter</span>
+    <select id="f-wilayah" onchange="applyFilters()" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+      <option value="">Semua Wilayah</option>
+      <option>SURABAYA</option><option>SIDOARJO</option><option>GRESIK</option>
+    </select>
+    <select id="f-arco" onchange="applyFilters()" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+      <option value="">Semua ARCO</option>
+      <option>ALI</option><option>ARI</option><option>AYU</option>
+      <option>CIPTO</option><option>DEWI</option><option>HARTONO</option>
+      <option>NIA</option><option>NORA</option><option>TONI</option>
+    </select>
+    <select id="f-grade" onchange="applyFilters()" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+      <option value="">Semua Grade</option>
+      <option>A</option><option>B</option><option>C</option><option>D</option>
+    </select>
+    <select id="f-kondisi" onchange="applyFilters()" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+      <option value="">Semua Kondisi</option>
+      <option>Kritis</option><option>Perlu Perhatian</option><option>Normal</option><option>Belum Submit</option>
+    </select>
+    <select id="f-cluster" onchange="applyFilters()" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:ring-1 focus:ring-amber-400 focus:outline-none">
+      <option value="">Semua Cluster</option>
+      <option value="A">🏆 Cluster A</option>
+      <option value="B+">⭐ Cluster B+</option>
+      <option value="B">✅ Cluster B</option>
+      <option value="C">📈 Cluster C</option>
+    </select>
+    <input id="f-search" oninput="applyFilters()" type="text" placeholder="🔍 Cari toko..."
+      class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-indigo-400 focus:outline-none w-36">
+    <button onclick="resetFilters()" class="text-xs text-indigo-500 hover:text-indigo-700 font-bold">Reset</button>
+    <span class="text-xs text-gray-300 ml-auto"><span id="f-count">—</span> toko ditampilkan</span>
+    <button onclick="exportCSV()" class="text-xs text-indigo-500 hover:text-indigo-700 font-semibold border border-indigo-200 px-3 py-1.5 rounded-lg">⬇ CSV</button>
+  </div>
+
+  <div class="p-4 md:p-5 space-y-5 max-w-screen-2xl mx-auto">
+
+    <!-- ── PULSE EKSEKUTIF ── -->
+    <div id="pulse-panel" class="p-5 md:p-6">
+      <div class="flex items-start gap-3">
+        <div class="text-2xl mt-0.5">🧠</div>
+        <div class="flex-1">
+          <div class="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-2">Pulse Eksekutif — Ringkasan COO</div>
+          <div id="pulse-text" class="text-white text-sm leading-relaxed space-y-1.5">
+            <div class="text-indigo-300 text-sm italic">Memuat analisa...</div>
+          </div>
+        </div>
+        <div class="text-right hidden md:block">
+          <div class="text-xs text-indigo-400 uppercase tracking-wide">Skor Integritas Jaringan</div>
+          <div id="integrity-score" class="text-4xl font-black text-white mt-1">—</div>
+          <div class="text-xs text-indigo-300 mt-0.5">dari 100</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── KPI ROW ── -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+
+      <!-- Submit -->
+      <div class="card kpi kpi-submit p-5 card-hover">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Submit Hari Ini</div>
+        <div class="text-3xl font-black text-gray-900" id="k-submit">—</div>
+        <div class="prog-bar mt-3 mb-1"><div id="k-submit-bar" class="prog-fill" style="background:linear-gradient(90deg,#059669,#34D399)"></div></div>
+        <div class="flex justify-between items-center">
+          <div class="text-xs text-gray-400" id="k-submit-pct">—%</div>
+          <span id="k-submit-trend" class="trend-flat">—</span>
+        </div>
+      </div>
+
+      <!-- Skor Harian -->
+      <div class="card kpi kpi-skor p-5 card-hover">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Rata Skor Harian</div>
+        <div class="text-3xl font-black" id="k-skor" style="color:#4F46E5">—</div>
+        <div class="text-xs text-gray-400 mt-1">dari 5.0</div>
+        <div class="mt-3 flex items-center justify-between">
+          <div class="text-xs text-gray-400" id="k-skor-label">—</div>
+          <span id="k-skor-trend" class="trend-flat">—</span>
+        </div>
+      </div>
+
+      <!-- Kunjungan ARCO -->
+      <div class="card kpi kpi-kunjungan p-5 card-hover">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Kunjungan ARCO</div>
+        <div class="text-3xl font-black text-gray-900" id="k-kunjungan">—</div>
+        <div class="prog-bar mt-3 mb-1"><div id="k-kunjungan-bar" class="prog-fill" style="background:linear-gradient(90deg,#D97706,#FCD34D)"></div></div>
+        <div class="text-xs text-gray-400" id="k-kunjungan-sub">minggu ini</div>
+      </div>
+
+      <!-- Status Toko -->
+      <div class="card kpi kpi-status p-5 card-hover">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Status Toko</div>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-rose-600 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>Kritis</span>
+            <span class="text-xl font-black text-rose-600" id="k-kritis">—</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-amber-600 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>Perhatian</span>
+            <span class="text-xl font-black text-amber-500" id="k-perhatian">—</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-gray-400 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-300 inline-block"></span>Belum Submit</span>
+            <span class="text-xl font-black text-gray-400" id="k-belum">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Diskrepansi / Integritas -->
+      <div class="card kpi kpi-integritas p-5 card-hover" id="k-disk-card">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Diskrepansi Sidak</div>
+        <div class="text-3xl font-black" id="k-disk">—</div>
+        <div class="text-xs text-gray-400 mt-1 mb-3">laporan perlu investigasi</div>
+        <div id="k-overdue-badge"></div>
+      </div>
+
+    </div>
+
+    <!-- ── CLUSTER ANALYTICS ── -->
+    <div class="card overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest">🏷️ Analisis per Cluster Toko</h3>
+        <span class="text-xs text-gray-300">Berdasarkan jumlah SKU & luasan toko — data 7 hari</span>
+      </div>
+      <!-- Header row -->
+      <div class="cl-row bg-gray-50">
+        <div class="text-xs font-black text-gray-400 uppercase tracking-wide">Cluster</div>
+        <div class="text-xs font-black text-gray-400 uppercase tracking-wide text-center">Jumlah Toko</div>
+        <div class="text-xs font-black text-gray-400 uppercase tracking-wide text-center">Submit Hari Ini</div>
+        <div class="text-xs font-black text-gray-400 uppercase tracking-wide text-center">Avg Skor 7hr</div>
+        <div class="text-xs font-black text-gray-400 uppercase tracking-wide text-center">Status Kritis</div>
+      </div>
+      <div id="cluster-analytics-body">
+        <div class="text-center py-6 text-xs text-gray-400 italic">Memuat data cluster...</div>
+      </div>
+    </div>
+
+    <!-- ── ROW 2: ALERTS + GRADE DIST + ARCO RANKING ── -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+      <!-- Alert Prioritas -->
+      <div class="card p-5">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">🚨 Alert Prioritas</h3>
+        <div id="alert-panel"><p class="text-xs text-gray-400 italic">Memuat...</p></div>
+      </div>
+
+      <!-- Distribusi Grade -->
+      <div class="card p-5 flex flex-col">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">📊 Distribusi Grade F2</h3>
+        <div class="flex-1 flex items-center justify-center">
+          <div class="relative w-44 h-44">
+            <canvas id="grade-chart"></canvas>
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <div class="text-2xl font-black text-gray-800" id="grade-total">—</div>
+              <div class="text-xs text-gray-400">toko dinilai</div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-1 mt-3" id="grade-legend"></div>
+      </div>
+
+      <!-- Ranking ARCO -->
+      <div class="card p-5">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">🏆 Efektivitas ARCO</h3>
+        <div id="arco-panel"><p class="text-xs text-gray-400 italic">Memuat...</p></div>
+      </div>
+
+    </div>
+
+    <!-- ── ROW 3: TOP 5 + BOTTOM 5 ── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <!-- Top 5 -->
+      <div class="card p-5">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">🥇 5 Toko Terbaik</h3>
+        <p class="text-xs text-gray-300 mb-4">Berdasarkan skor F1 rata-rata 7 hari</p>
+        <div id="top5-panel"><p class="text-xs text-gray-400 italic">Memuat...</p></div>
+      </div>
+
+      <!-- Bottom 5 -->
+      <div class="card p-5">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">⚠️ 5 Toko Prioritas Pembinaan</h3>
+        <p class="text-xs text-gray-300 mb-4">Skor terendah — perlu perhatian COO</p>
+        <div id="bottom5-panel"><p class="text-xs text-gray-400 italic">Memuat...</p></div>
+      </div>
+
+    </div>
+
+    <!-- ── TABEL LENGKAP ── -->
+    <div class="card overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-50">
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest">📋 Ringkasan Seluruh Toko</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="tbl w-full">
+          <thead>
+            <tr>
+              <th class="text-left sticky left-0 bg-gray-50 z-10">Kode</th>
+              <th class="text-left">Nama Toko</th>
+              <th>Cluster</th>
+              <th>Wil.</th>
+              <th>ARCO</th>
+              <th>Skor F1<br><span class="font-normal normal-case" style="letter-spacing:0">7 hari</span></th>
+              <th>Grade F2</th>
+              <th>Sidak</th>
+              <th>Kondisi</th>
+            </tr>
+          </thead>
+          <tbody id="toko-tbody">
+            <tr><td colspan="9" class="text-center text-gray-400 py-10 text-sm">Memuat data toko...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── CHARTS ── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest">📈 Tren Skor Harian — 30 Hari</h3>
+          <span class="text-xs text-gray-300" id="avg30-label"></span>
+        </div>
+        <canvas id="chart-skor" height="160"></canvas>
+      </div>
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest">📊 Submit Harian — 30 Hari</h3>
+          <span class="text-xs text-gray-300" id="avg30-submit-label"></span>
+        </div>
+        <canvas id="chart-submit" height="160"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /dashboard -->
+
+<!-- Loading -->
+<div id="overlay" class="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-40 hidden">
+  <div class="text-center">
+    <div class="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center text-2xl animate-pulse"
+         style="background:linear-gradient(135deg,#1E1B4B,#4F46E5)">📊</div>
+    <div class="font-bold text-gray-700 text-sm">Memuat data...</div>
+  </div>
+</div>
+
+<script>
+// ─── KONFIGURASI ──────────────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyN9keDEIbi9Oi3kNe1yvt-3_8C__bKfedQDm11eJG78JuN3daUpUWBVl6qxsOTpYEz/exec';
+// ─────────────────────────────────────────────────────────
+
+let DD = null, sessionPass = '', chartSkor = null, chartSubmit = null, gradeChart = null, refreshTimer = null;
+
+// ─── LIVE CLOCK ───────────────────────────────────────────
+function startClock() {
+  setInterval(() => {
+    const n = new Date();
+    document.getElementById('live-clock').textContent =
+      n.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }, 1000);
+}
+
+// ─── LOGIN ────────────────────────────────────────────────
+async function doLogin() {
+  const pass = document.getElementById('pass-input').value.trim();
+  if (!pass) return;
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Memverifikasi...'; btn.disabled = true;
+  document.getElementById('login-error').classList.add('hidden');
+
+  try {
+    const r = await fetch(`${APPS_SCRIPT_URL}?action=dashboard&password=${encodeURIComponent(pass)}`);
+    const d = await r.json();
+    if (d.status === 'ok') {
+      sessionPass = pass;
+      showDashboard(d);
+    } else {
+      document.getElementById('login-error').classList.remove('hidden');
+      btn.textContent = 'Masuk ke Dashboard →'; btn.disabled = false;
+    }
+  } catch {
+    if (APPS_SCRIPT_URL.includes('PASTE_')) { showDashboard(demoData()); }
+    else {
+      document.getElementById('login-error').textContent = '❌ Koneksi gagal. Periksa URL Apps Script.';
+      document.getElementById('login-error').classList.remove('hidden');
+      btn.textContent = 'Masuk ke Dashboard →'; btn.disabled = false;
+    }
+  }
+}
+
+function showDashboard(data) {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  startClock();
+  renderAll(data);
+  refreshTimer = setInterval(() => { if(sessionPass) loadData(); }, 5*60*1000);
+}
+
+function doLogout() {
+  sessionPass = ''; DD = null; clearInterval(refreshTimer);
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('pass-input').value = '';
+  document.getElementById('login-btn').textContent = 'Masuk ke Dashboard →';
+  document.getElementById('login-btn').disabled = false;
+}
+
+async function loadData() {
+  document.getElementById('overlay').classList.remove('hidden');
+  try {
+    const r = await fetch(`${APPS_SCRIPT_URL}?action=dashboard&password=${encodeURIComponent(sessionPass)}`);
+    const d = await r.json();
+    if (d.status === 'ok') renderAll(d);
+  } catch(e) { console.warn('Refresh gagal', e); }
+  document.getElementById('overlay').classList.add('hidden');
+}
+
+// ─── RENDER ALL ───────────────────────────────────────────
+function renderAll(data) {
+  DD = data;
+  const d = new Date();
+  document.getElementById('header-date').textContent =
+    d.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  if (data.updated_at)
+    document.getElementById('updated-at').textContent = new Date(data.updated_at).toLocaleTimeString('id-ID');
+
+  renderKPI(data.kpi);
+  renderPulse(data);
+  renderClusterAnalytics(data.cluster_analytics, data.toko_summary);
+  renderAlerts(data.alerts);
+  renderGradeChart(data.toko_summary);
+  renderArco(data.arco_ranking);
+  renderTopBottom(data.toko_summary);
+  renderTable(data.toko_summary);
+  renderCharts(data.tren_30_hari);
+}
+
+// ─── CLUSTER ANALYTICS ───────────────────────────────────
+function clPillClass(cl) {
+  return cl==='A' ? 'cl-A' : cl==='B+' ? 'cl-Bp' : cl==='B' ? 'cl-B' : 'cl-C';
+}
+function clPillLabel(cl) {
+  return cl==='A' ? '🏆 A' : cl==='B+' ? '⭐ B+' : cl==='B' ? '✅ B' : '📈 C';
+}
+function clBarColor(cl) {
+  return cl==='A' ? '#F59E0B' : cl==='B+' ? '#3B82F6' : cl==='B' ? '#059669' : '#9CA3AF';
+}
+function clLabel(cl) {
+  return cl==='A'  ? 'SKU Terbanyak — Luas Toko Besar'
+    : cl==='B+' ? 'SKU Banyak — Luas Toko Menengah Atas'
+    : cl==='B'  ? 'SKU Standar — Luas Toko Menengah'
+    :             'SKU Terbatas — Luas Toko Kecil';
+}
+
+function renderClusterAnalytics(analytics, summary) {
+  const body = document.getElementById('cluster-analytics-body');
+  if (!analytics?.length && !summary?.length) {
+    body.innerHTML = '<div class="text-center py-6 text-xs text-gray-400 italic">Data cluster belum tersedia — isi kolom cluster di MASTER_TOKO</div>';
+    return;
+  }
+
+  // Build from toko_summary if analytics not available (fallback)
+  let data = analytics;
+  if (!data?.length && summary?.length) {
+    const CLUSTERS = ['A','B+','B','C'];
+    data = CLUSTERS.map(cl => {
+      const clToko = summary.filter(t => t.cluster === cl);
+      const submitted = clToko.filter(t => t.kondisi_hari_ini !== 'Belum Submit');
+      const avgSkor = submitted.length > 0
+        ? (submitted.reduce((s,t)=>s+(t.skor_f1_7hr||0),0)/submitted.length).toFixed(2) : null;
+      return {
+        cluster: cl, total_toko: clToko.length,
+        submit_hari: submitted.length,
+        avg_skor_7hr: parseFloat(avgSkor),
+        kritis: clToko.filter(t=>t.kondisi_hari_ini==='Kritis').length,
+        perhatian: clToko.filter(t=>t.kondisi_hari_ini==='Perlu Perhatian').length,
+      };
+    });
+  }
+
+  body.innerHTML = data.filter(c => c.total_toko > 0).map(c => {
+    const submitPct = c.total_toko > 0 ? Math.round((c.submit_hari/c.total_toko)*100) : 0;
+    const skorPct   = c.avg_skor_7hr ? Math.round((c.avg_skor_7hr/5)*100) : 0;
+    const scoreColor= c.avg_skor_7hr >= 4 ? '#059669' : c.avg_skor_7hr >= 3 ? '#4F46E5' : c.avg_skor_7hr >= 2 ? '#D97706' : '#DC2626';
+    const hasAlert  = c.kritis > 0 || c.perhatian > 0;
+
+    return `<div class="cl-row">
+      <div>
+        <span class="pill ${clPillClass(c.cluster)} text-xs">${clPillLabel(c.cluster)}</span>
+        <div class="text-xs text-gray-400 mt-1 hidden md:block" style="font-size:10px">${clLabel(c.cluster)}</div>
+      </div>
+      <div class="text-center">
+        <div class="text-lg font-black text-gray-800">${c.total_toko}</div>
+        <div class="text-xs text-gray-400">toko</div>
+      </div>
+      <div class="text-center">
+        <div class="font-black text-sm" style="color:${submitPct>=90?'#059669':submitPct>=70?'#D97706':'#DC2626'}">${c.submit_hari}/${c.total_toko}</div>
+        <div class="cl-bar-wrap mt-1.5 mx-auto" style="max-width:80px">
+          <div class="cl-bar-fill" style="width:${submitPct}%;background:${submitPct>=90?'#059669':submitPct>=70?'#D97706':'#DC2626'}"></div>
+        </div>
+        <div class="text-xs text-gray-400 mt-0.5">${submitPct}%</div>
+      </div>
+      <div class="text-center">
+        ${c.avg_skor_7hr ? `<div class="font-black text-xl" style="color:${scoreColor}">${c.avg_skor_7hr}</div>
+          <div class="cl-bar-wrap mt-1 mx-auto" style="max-width:80px">
+            <div class="cl-bar-fill" style="width:${skorPct}%;background:${scoreColor}"></div>
+          </div>
+          <div class="text-xs text-gray-400 mt-0.5">dari 5.0</div>`
+        : '<div class="text-gray-300 text-sm">—</div>'}
+      </div>
+      <div class="text-center">
+        ${hasAlert ? `
+          ${c.kritis > 0 ? `<div class="pill p-red text-xs mb-1">🔴 ${c.kritis} Kritis</div>` : ''}
+          ${c.perhatian > 0 ? `<div class="pill p-yellow text-xs">🟡 ${c.perhatian} Perhatian</div>` : ''}
+        ` : '<span class="pill p-green text-xs">✅ Normal</span>'}
+      </div>
+    </div>`;
+  }).join('') || '<div class="text-center py-6 text-xs text-gray-400">Belum ada data cluster</div>';
+}
+
+// ─── PULSE EKSEKUTIF ──────────────────────────────────────
+function renderPulse(data) {
+  const kpi = data.kpi || {};
+  const toko = data.toko_summary || [];
+  const lines = [];
+
+  // Compliance
+  const pct = kpi.submit_persen || 0;
+  if (pct >= 90) lines.push(`✅ Compliance laporan <strong>sangat baik</strong>: ${pct}% toko sudah submit hari ini — eksekusi disiplin jaringan terjaga.`);
+  else if (pct >= 70) lines.push(`🟡 Compliance <strong>perlu diperhatikan</strong>: baru ${pct}% toko submit (${kpi.submit_hari_ini}/${kpi.total_toko_aktif}). Dorong ${(kpi.total_toko_aktif - kpi.submit_hari_ini)} Store Leader yang belum lapor sebelum tutup shift.`);
+  else lines.push(`🔴 <strong>Compliance rendah</strong>: hanya ${pct}% toko submit (${kpi.submit_hari_ini}/${kpi.total_toko_aktif}). Ini sinyal risiko — bisa jadi ada masalah operasional atau kebiasaan yang perlu diperbaiki segera.`);
+
+  // Skor
+  const skor = kpi.rata_skor_harian;
+  if (skor) {
+    if (skor >= 4.5) lines.push(`🏆 Rata skor harian <strong>${skor}/5</strong> — performa jaringan ekselen. Pertahankan momen ini dengan OM memperkuat best practice dari toko Grade A ke toko lain.`);
+    else if (skor >= 3.5) lines.push(`📈 Rata skor harian <strong>${skor}/5</strong> — performa solid namun masih ada ruang perbaikan. Fokuskan pembinaan ARCO pada pilar D (kas) dan B (display) yang biasanya menjadi pembeda grade.`);
+    else lines.push(`⚠️ Rata skor harian <strong>${skor}/5</strong> — di bawah standar. Review jadwal kunjungan ARCO dan pastikan siklus penilaian F2 berjalan reguler agar toko tidak kehilangan orientasi SOP.`);
+  }
+
+  // Diskrepansi
+  if (kpi.diskrepansi_aktif > 0) {
+    lines.push(`🔍 <strong>${kpi.diskrepansi_aktif} diskrepansi sidak aktif</strong> — ada ketidakcocokan antara laporan toko/ARCO dengan hasil sidak OM. Ini sinyal integritas pelaporan yang perlu diselidiki. Jadwalkan konfirmasi langsung ke toko terkait minggu ini.`);
+  } else {
+    lines.push(`✅ Tidak ada diskrepansi sidak aktif — laporan lapangan dan hasil verifikasi OM konsisten. Integritas data terjaga.`);
+  }
+
+  // Kritis
+  if (kpi.toko_kritis > 0) {
+    const kritisNames = (data.alerts?.toko_kritis || []).map(t => t.kode || t.nama).join(', ');
+    lines.push(`🔴 <strong>${kpi.toko_kritis} toko berstatus Kritis</strong>${kritisNames ? ': ' + kritisNames : ''}. Perlu intervensi langsung hari ini — jangan tunggu kunjungan terjadwal.`);
+  }
+
+  // Kunjungan ARCO
+  const kvPct = kpi.target_kunjungan_minggu > 0
+    ? Math.round((kpi.kunjungan_arco_minggu / kpi.target_kunjungan_minggu) * 100) : 0;
+  if (kvPct < 70) lines.push(`📅 Kunjungan ARCO minggu ini baru <strong>${kvPct}%</strong> dari target. Pastikan ARCO tidak menumpuk kunjungan di akhir minggu — distribusi kunjungan merata = temuan lebih tajam.`);
+
+  document.getElementById('pulse-text').innerHTML = lines.map(l =>
+    `<p class="text-sm text-indigo-100 leading-relaxed">${l}</p>`).join('');
+
+  // Integrity score (0-100)
+  const intScore = Math.round(
+    (pct * 0.30) +
+    ((skor / 5) * 100 * 0.25) +
+    (kpi.diskrepansi_aktif === 0 ? 25 : Math.max(0, 25 - kpi.diskrepansi_aktif * 8)) +
+    (kpi.toko_kritis === 0 ? 20 : Math.max(0, 20 - kpi.toko_kritis * 7))
+  );
+  const el = document.getElementById('integrity-score');
+  el.textContent = intScore;
+  el.style.color = intScore >= 80 ? '#34D399' : intScore >= 60 ? '#FCD34D' : '#F87171';
+}
+
+// ─── KPI ──────────────────────────────────────────────────
+function renderKPI(kpi) {
+  if (!kpi) return;
+
+  // Submit
+  const pct = kpi.submit_persen || 0;
+  document.getElementById('k-submit').textContent   = `${kpi.submit_hari_ini}/${kpi.total_toko_aktif}`;
+  document.getElementById('k-submit-pct').textContent = `${pct}%`;
+  document.getElementById('k-submit-bar').style.width = pct + '%';
+  document.getElementById('k-submit-bar').style.background =
+    pct >= 90 ? 'linear-gradient(90deg,#059669,#34D399)' :
+    pct >= 70 ? 'linear-gradient(90deg,#D97706,#FCD34D)' :
+                'linear-gradient(90deg,#DC2626,#F87171)';
+  document.getElementById('k-submit-trend').className = pct >= 90 ? 'trend-up' : pct >= 70 ? 'trend-flat' : 'trend-down';
+  document.getElementById('k-submit-trend').textContent = pct >= 90 ? '✓ On target' : pct >= 70 ? '⚠ Perlu push' : '↓ Rendah';
+
+  // Skor
+  const skor = kpi.rata_skor_harian;
+  const skorEl = document.getElementById('k-skor');
+  skorEl.textContent = skor || '—';
+  skorEl.style.color = skor >= 4.5 ? '#059669' : skor >= 3.5 ? '#4F46E5' : skor >= 2.5 ? '#D97706' : '#DC2626';
+  document.getElementById('k-skor-label').textContent = skor >= 4.5 ? 'Ekselen' : skor >= 3.5 ? 'Solid' : skor >= 2.5 ? 'Cukup' : 'Perlu Pembinaan';
+  const sTrend = document.getElementById('k-skor-trend');
+  sTrend.className = skor >= 4 ? 'trend-up' : skor >= 3 ? 'trend-flat' : 'trend-down';
+  sTrend.textContent = skor >= 4.5 ? '↑ Ekselen' : skor >= 3.5 ? '→ Solid' : '↓ Butuh perhatian';
+
+  // Kunjungan
+  const kvPct = kpi.target_kunjungan_minggu > 0
+    ? Math.round((kpi.kunjungan_arco_minggu / kpi.target_kunjungan_minggu)*100) : 0;
+  document.getElementById('k-kunjungan').textContent  = `${kpi.kunjungan_arco_minggu}/${kpi.target_kunjungan_minggu}`;
+  document.getElementById('k-kunjungan-bar').style.width = kvPct + '%';
+  document.getElementById('k-kunjungan-sub').textContent = `${kvPct}% target minggu ini`;
+
+  // Status
+  document.getElementById('k-kritis').textContent   = kpi.toko_kritis;
+  document.getElementById('k-perhatian').textContent = kpi.toko_perlu_perhatian;
+  document.getElementById('k-belum').textContent     = (kpi.total_toko_aktif - kpi.submit_hari_ini) || 0;
+
+  // Diskrepansi
+  const disk = kpi.diskrepansi_aktif;
+  const diskEl   = document.getElementById('k-disk');
+  const diskCard = document.getElementById('k-disk-card');
+  diskEl.textContent = disk;
+  if (disk > 0) {
+    diskEl.style.color = '#DC2626';
+    diskCard.style.borderTop = '4px solid #DC2626';
+    diskCard.style.background = '#FFF1F2';
+  } else {
+    diskEl.style.color = '#059669';
+    diskCard.style.borderTop = '4px solid #059669';
+  }
+  if (kpi.tl_overdue > 0) {
+    document.getElementById('k-overdue-badge').innerHTML =
+      `<span class="pill p-yellow">⏰ ${kpi.tl_overdue} TL overdue</span>`;
+  }
+}
+
+// ─── ALERTS ───────────────────────────────────────────────
+function renderAlerts(alerts) {
+  if (!alerts) return;
+  const el = document.getElementById('alert-panel');
+  let html = '';
+
+  const section = (cls, emoji, title, items, fn) => {
+    if (!items?.length) return '';
+    return `<div class="mb-3">
+      <div class="text-xs font-black mb-1.5" style="color:${cls==='alert-kritis'?'#DC2626':cls==='alert-diskrepansi'?'#EA580C':cls==='alert-perhatian'?'#D97706':'#6B7280'}">${emoji} ${title} (${items.length})</div>
+      ${items.slice(0,4).map(fn).join('')}
+      ${items.length > 4 ? `<div class="text-xs text-gray-400 mt-1">+${items.length-4} lainnya</div>` : ''}
+    </div>`;
+  };
+
+  html += section('alert-kritis','🔴','KRITIS', alerts.toko_kritis,
+    t => `<div class="alert-item alert-kritis"><div class="text-xs font-bold text-gray-800">${t.kode||t.nama}</div>${t.catatan?`<div class="text-xs text-gray-500 mt-0.5">${t.catatan}</div>`:''}</div>`);
+
+  html += section('alert-diskrepansi','🔍','DISKREPANSI SIDAK', alerts.diskrepansi,
+    d => `<div class="alert-item alert-diskrepansi">
+      <div class="text-xs font-bold text-gray-800">${d.toko} · <span class="font-normal">${d.tanggal||''}</span></div>
+      <div class="text-xs text-gray-600 mt-0.5">vs Katoko: <strong>${d.selisih_katoko??'—'}</strong> · vs ARCO: <strong>${d.selisih_arco??'—'}</strong></div>
+      ${d.temuan?`<div class="text-xs text-gray-400 mt-0.5 italic">"${d.temuan}"</div>`:''}
+    </div>`);
+
+  html += section('alert-perhatian','🟡','PERLU PERHATIAN', alerts.toko_perhatian,
+    t => `<div class="alert-item alert-perhatian"><div class="text-xs font-bold text-gray-800">${t.kode||t.nama}</div></div>`);
+
+  if (alerts.tl_overdue?.length) {
+    html += section('alert-info','📅','TINDAK LANJUT OVERDUE', alerts.tl_overdue,
+      t => `<div class="alert-item alert-info"><div class="text-xs font-bold text-gray-800">${t.toko}</div><div class="text-xs text-gray-400">Deadline: ${t.deadline||'—'}</div></div>`);
+  }
+
+  if (alerts.belum_submit?.length) {
+    html += `<div class="text-xs font-bold text-gray-400 mb-1">📭 BELUM SUBMIT (${alerts.belum_submit.length})</div>
+    <div class="text-xs text-gray-400 leading-relaxed">${alerts.belum_submit.map(t=>t.kode||t.nama).join(' · ')}</div>`;
+  }
+
+  el.innerHTML = html || `<div class="text-center py-6"><div class="text-3xl mb-2">✅</div><div class="text-sm font-bold text-emerald-600">Tidak ada alert hari ini</div><div class="text-xs text-gray-400 mt-1">Jaringan berjalan normal</div></div>`;
+}
+
+// ─── GRADE DISTRIBUTION ───────────────────────────────────
+function renderGradeChart(summary) {
+  if (!summary) return;
+  const counts = { A:0, B:0, C:0, D:0, '—':0 };
+  summary.forEach(t => { const g = t.grade_f2 || '—'; if (counts[g] !== undefined) counts[g]++; });
+
+  const total = counts.A + counts.B + counts.C + counts.D;
+  document.getElementById('grade-total').textContent = total;
+
+  if (gradeChart) gradeChart.destroy();
+  gradeChart = new Chart(document.getElementById('grade-chart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Grade A', 'Grade B', 'Grade C', 'Grade D'],
+      datasets: [{
+        data: [counts.A, counts.B, counts.C, counts.D],
+        backgroundColor: ['#059669','#4F46E5','#D97706','#DC2626'],
+        borderWidth: 3, borderColor: '#fff',
+      }]
+    },
+    options: {
+      cutout: '70%', responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} toko` }
+      }}
+    }
+  });
+
+  const lg = document.getElementById('grade-legend');
+  const colors = { A:'#059669', B:'#4F46E5', C:'#D97706', D:'#DC2626' };
+  const bgColors = { A:'#ECFDF5', B:'#EFF6FF', C:'#FFFBEB', D:'#FFF1F2' };
+  lg.innerHTML = ['A','B','C','D'].map(g => `
+    <div class="text-center rounded-xl py-2" style="background:${bgColors[g]}">
+      <div class="text-base font-black" style="color:${colors[g]}">${g}</div>
+      <div class="text-xs font-bold text-gray-500">${counts[g]}</div>
+    </div>`).join('');
+}
+
+// ─── ARCO RANKING ─────────────────────────────────────────
+function renderArco(ranking) {
+  const el = document.getElementById('arco-panel');
+  if (!ranking?.length) { el.innerHTML = '<p class="text-xs text-gray-400 italic">Belum ada data F3</p>'; return; }
+
+  const medals = ['🥇','🥈','🥉'];
+  el.innerHTML = ranking.map((a, i) => {
+    const s = a.avg_skor;
+    const color = s >= 4.5 ? '#059669' : s >= 3.5 ? '#4F46E5' : s >= 2.5 ? '#D97706' : '#DC2626';
+    const pct = s ? Math.round((s/5)*100) : 0;
+    return `<div class="rank-row">
+      <span class="text-xl flex-shrink-0">${medals[i] || `${i+1}.`}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-bold text-gray-800 flex items-center gap-2">
+          ${a.nama_arco}
+          ${a.grade ? `<span class="pill g-${a.grade} text-xs">${a.grade}</span>` : ''}
+        </div>
+        <div class="prog-bar mt-1.5"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+      <div class="text-sm font-black flex-shrink-0" style="color:${color}">${s ?? '—'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── TOP 5 / BOTTOM 5 ─────────────────────────────────────
+function renderTopBottom(summary) {
+  if (!summary) return;
+  const scored = summary.filter(t => t.skor_f1_7hr !== null).sort((a,b) => (b.skor_f1_7hr||0)-(a.skor_f1_7hr||0));
+  const top5   = scored.slice(0, 5);
+  const bot5   = [...scored].reverse().slice(0, 5);
+
+  const row = (t, i, isTop) => {
+    const s = t.skor_f1_7hr;
+    const color = s >= 4.5 ? '#059669' : s >= 3.5 ? '#4F46E5' : s >= 2.5 ? '#D97706' : '#DC2626';
+    const medals = isTop ? ['🥇','🥈','🥉','4️⃣','5️⃣'] : ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣'];
+    return `<div class="rank-row">
+      <span class="text-lg">${medals[i]}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-bold text-gray-800 truncate">${t.nama_toko}</div>
+        <div class="text-xs text-gray-400">${t.arco || '-'} · ${t.wilayah||''}</div>
+        <div class="prog-bar mt-1.5">
+          <div class="prog-fill" style="width:${Math.round((s/5)*100)}%;background:${color}"></div>
+        </div>
+      </div>
+      <div class="font-black text-base flex-shrink-0" style="color:${color}">${s}</div>
+    </div>`;
+  };
+
+  document.getElementById('top5-panel').innerHTML   = top5.map((t,i) => row(t,i,true)).join('') || '<p class="text-xs text-gray-400 italic">Belum ada data</p>';
+  document.getElementById('bottom5-panel').innerHTML = bot5.map((t,i) => row(t,i,false)).join('') || '<p class="text-xs text-gray-400 italic">Belum ada data</p>';
+}
+
+// ─── TABEL ────────────────────────────────────────────────
+function renderTable(summary) { if (summary) applyFilters(); }
+
+function applyFilters() {
+  if (!DD?.toko_summary) return;
+  const wil = document.getElementById('f-wilayah').value;
+  const arc = document.getElementById('f-arco').value;
+  const grd = document.getElementById('f-grade').value;
+  const kon = document.getElementById('f-kondisi').value;
+  const clr = document.getElementById('f-cluster').value;
+  const srh = document.getElementById('f-search').value.toLowerCase();
+
+  const filtered = DD.toko_summary.filter(t => {
+    if (wil && t.wilayah !== wil) return false;
+    if (arc && t.arco   !== arc) return false;
+    if (grd && t.grade_f2 !== grd) return false;
+    if (kon && t.kondisi_hari_ini !== kon) return false;
+    if (clr && t.cluster !== clr) return false;
+    if (srh && !t.nama_toko?.toLowerCase().includes(srh) && !t.kode_toko?.toLowerCase().includes(srh)) return false;
+    return true;
+  });
+
+  document.getElementById('f-count').textContent = filtered.length;
+
+  const gradeC = { A:'g-A', B:'g-B', C:'g-C', D:'g-D' };
+  const sidakC = { 'SESUAI':'p-green','PERLU TINJAU':'p-yellow','DISKREPANSI':'p-red' };
+  const kondC  = { 'Normal':'p-green','Perlu Perhatian':'p-yellow','Kritis':'p-red','Belum Submit':'p-gray' };
+
+  const sColor = v => v >= 4.5 ? '#059669' : v >= 3.5 ? '#4F46E5' : v >= 2.5 ? '#D97706' : v > 0 ? '#DC2626' : '#94A3B8';
+
+  document.getElementById('toko-tbody').innerHTML = filtered.map(t => {
+    const s = t.skor_f1_7hr; const kond = t.kondisi_hari_ini || 'Belum Submit';
+    const cl = t.cluster || '—';
+    return `<tr>
+      <td class="font-bold text-gray-700 sticky left-0 bg-white">${t.kode_toko}</td>
+      <td class="font-medium text-gray-700 max-w-xs truncate">${t.nama_toko}</td>
+      <td class="text-center">${cl!=='—'?`<span class="pill ${clPillClass(cl)}">${clPillLabel(cl)}</span>`:'<span class="text-gray-300">—</span>'}</td>
+      <td class="text-center"><span class="pill p-blue">${t.wilayah||'—'}</span></td>
+      <td class="text-center font-bold text-gray-600">${t.arco||'-'}</td>
+      <td class="text-center font-black" style="color:${sColor(s||0)}">${s??'—'}</td>
+      <td class="text-center">${t.grade_f2 ? `<span class="pill ${gradeC[t.grade_f2]||'p-gray'}">${t.grade_f2}</span>` : '<span class="text-gray-300">—</span>'}</td>
+      <td class="text-center">${t.status_sidak ? `<span class="pill ${sidakC[t.status_sidak]||'p-gray'}">${t.status_sidak}</span>` : '<span class="text-gray-300">—</span>'}</td>
+      <td class="text-center"><span class="pill ${kondC[kond]||'p-gray'}">${kond}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" class="text-center py-8 text-gray-400 text-sm">Tidak ada data sesuai filter</td></tr>';
+}
+
+function resetFilters() {
+  ['f-wilayah','f-arco','f-grade','f-kondisi','f-cluster'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-search').value = '';
+  applyFilters();
+}
+
+// ─── CHARTS ───────────────────────────────────────────────
+function renderCharts(tren) {
+  if (!tren?.length) return;
+  const labels  = tren.map(d => { const dt = new Date(d.tanggal); return `${dt.getDate()}/${dt.getMonth()+1}`; });
+  const skorArr = tren.map(d => d.avg_skor);
+  const subArr  = tren.map(d => d.jumlah_submit);
+
+  // Avg labels
+  const validSkor = skorArr.filter(v => v != null);
+  if (validSkor.length) document.getElementById('avg30-label').textContent = `Rata: ${(validSkor.reduce((a,b)=>a+b,0)/validSkor.length).toFixed(2)}/5`;
+  const validSub  = subArr.filter(v => v != null);
+  if (validSub.length)  document.getElementById('avg30-submit-label').textContent = `Rata: ${Math.round(validSub.reduce((a,b)=>a+b,0)/validSub.length)} toko/hari`;
+
+  const gridColor = '#F1F5F9';
+  const opts = { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ display:false } },
+    scales:{ y:{ grid:{color:gridColor} }, x:{ grid:{display:false}, ticks:{font:{size:9}, maxTicksLimit:10} } }
+  };
+
+  if (chartSkor) chartSkor.destroy();
+  chartSkor = new Chart(document.getElementById('chart-skor'), {
+    type:'line',
+    data:{ labels, datasets:[{
+      data: skorArr, spanGaps:true, fill:true, tension:.35,
+      borderColor:'#4F46E5', borderWidth:2.5, pointRadius:2.5,
+      backgroundColor:'rgba(79,70,229,0.08)', pointBackgroundColor:'#4F46E5',
+    }]},
+    options:{ ...opts, scales:{ ...opts.scales, y:{ min:0, max:5, ticks:{stepSize:1, font:{size:10}}, grid:{color:gridColor} } } }
+  });
+
+  if (chartSubmit) chartSubmit.destroy();
+  chartSubmit = new Chart(document.getElementById('chart-submit'), {
+    type:'bar',
+    data:{ labels, datasets:[{
+      data: subArr, borderRadius:5, borderSkipped:false,
+      backgroundColor: subArr.map(v => v >= 28 ? 'rgba(5,150,105,.8)' : v >= 20 ? 'rgba(217,119,6,.8)' : 'rgba(220,38,38,.8)'),
+    }]},
+    options:{ ...opts, scales:{ ...opts.scales, y:{ min:0, max:33, ticks:{font:{size:10}}, grid:{color:gridColor} } } }
+  });
+}
+
+// ─── EXPORT ───────────────────────────────────────────────
+function exportCSV() {
+  if (!DD?.toko_summary) return;
+  const h = ['Kode','Nama Toko','Cluster','Wilayah','ARCO','Kepala Toko','Skor F1 7hr','Grade F2','Status Sidak','Kondisi'];
+  const rows = DD.toko_summary.map(t =>
+    [t.kode_toko,t.nama_toko,t.cluster??'',t.wilayah,t.arco,t.kepala_toko,t.skor_f1_7hr??'',t.grade_f2??'',t.status_sidak??'',t.kondisi_hari_ini??'']);
+  const csv = [h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a = Object.assign(document.createElement('a'),{
+    href: URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'})),
+    download: `makmur_monitoring_${new Date().toISOString().split('T')[0]}.csv`
+  });
+  a.click();
+}
+
+// ─── DEMO DATA ────────────────────────────────────────────
+function demoData() {
+  const today = new Date().toISOString().split('T')[0];
+  const tren = Array.from({length:30},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()-29+i);
+    return {tanggal:d.toISOString().split('T')[0], avg_skor:+(3.2+Math.random()*1.5).toFixed(2), jumlah_submit:Math.floor(20+Math.random()*13)};
+  });
+  const tokoSample = [
+    {kode_toko:'M01',nama_toko:'MAKMUR TAMBAHREJO (1)',cluster:'B',wilayah:'SURABAYA',arco:'NIA',kepala_toko:'Tsalits H. R.',skor_f1_7hr:4.6,grade_f2:'A',status_sidak:'SESUAI',kondisi_hari_ini:'Normal'},
+    {kode_toko:'M08',nama_toko:'MAKMUR KAPAS KRAMPUNG 138A',cluster:'A',wilayah:'SURABAYA',arco:'HARTONO',kepala_toko:'Maryati',skor_f1_7hr:4.4,grade_f2:'A',status_sidak:'SESUAI',kondisi_hari_ini:'Normal'},
+    {kode_toko:'M09',nama_toko:'MAKMUR BRATANG GEDE',cluster:'A',wilayah:'SURABAYA',arco:'HARTONO',kepala_toko:'Silfiana',skor_f1_7hr:4.2,grade_f2:'A',status_sidak:'SESUAI',kondisi_hari_ini:'Normal'},
+    {kode_toko:'M22',nama_toko:'MAKMUR PONDOK JATI',cluster:'B+',wilayah:'SIDOARJO',arco:'DEWI',kepala_toko:'Deviana A.',skor_f1_7hr:4.0,grade_f2:'B',status_sidak:'SESUAI',kondisi_hari_ini:'Normal'},
+    {kode_toko:'M02',nama_toko:'MAKMUR KAPAS KRAMPUNG 75E',cluster:'B+',wilayah:'SURABAYA',arco:'NIA',kepala_toko:'Vika Anjana',skor_f1_7hr:3.6,grade_f2:'B',status_sidak:'PERLU TINJAU',kondisi_hari_ini:'Normal'},
+    {kode_toko:'M17',nama_toko:'MAKMUR KARANG ASEM',cluster:'C',wilayah:'SIDOARJO',arco:'NIA',kepala_toko:'Anis Fadillah',skor_f1_7hr:2.1,grade_f2:'D',status_sidak:'DISKREPANSI',kondisi_hari_ini:'Kritis'},
+    {kode_toko:'M13',nama_toko:'MAKMUR WIGUNA TENGAH',cluster:'C',wilayah:'SURABAYA',arco:'-',kepala_toko:'Asyahnur P.U.',skor_f1_7hr:2.4,grade_f2:'C',status_sidak:null,kondisi_hari_ini:'Perlu Perhatian'},
+    {kode_toko:'M03',nama_toko:'MAKMUR USMAN SADAR',cluster:'B',wilayah:'GRESIK',arco:'ARI',kepala_toko:'Kamilia',skor_f1_7hr:null,grade_f2:'B',status_sidak:null,kondisi_hari_ini:'Belum Submit'},
+  ];
+  return {
+    status:'ok', updated_at: new Date().toISOString(),
+    kpi:{submit_hari_ini:25,total_toko_aktif:33,submit_persen:75.8,rata_skor_harian:3.7,kunjungan_arco_minggu:18,target_kunjungan_minggu:28,toko_kritis:1,toko_perlu_perhatian:3,diskrepansi_aktif:2,tl_overdue:1},
+    alerts:{
+      belum_submit:[{kode:'M03',nama:'MAKMUR USMAN SADAR'},{kode:'M11',nama:'MAKMUR RAYA LONTAR'},{kode:'M20',nama:'MAKMUR RAYA TENGGILIS'}],
+      toko_kritis:[{kode:'M17',nama:'MAKMUR KARANG ASEM',catatan:'Selisih kas >Rp500rb, ARCO VACANT'}],
+      toko_perhatian:[{kode:'M13',nama:'MAKMUR WIGUNA TENGAH'},{kode:'M20',nama:'MAKMUR RAYA TENGGILIS'},{kode:'M11',nama:'MAKMUR RAYA LONTAR'}],
+      diskrepansi:[{toko:'M12',tanggal:today,selisih_katoko:-1.4,selisih_arco:-1.2,temuan:'Kebersihan & display jauh dari laporan'},{toko:'M17',tanggal:today,selisih_katoko:-1.8,selisih_arco:null,temuan:'Setoran tidak sesuai catatan'}],
+      tl_overdue:[{toko:'M06',deadline:'2026-05-25'}],
+    },
+    toko_summary: tokoSample,
+    cluster_analytics:[
+      {cluster:'A',  total_toko:5,  submit_hari:5,  avg_skor_7hr:4.3, kritis:0, perhatian:0},
+      {cluster:'B+', total_toko:8,  submit_hari:7,  avg_skor_7hr:3.8, kritis:0, perhatian:1},
+      {cluster:'B',  total_toko:15, submit_hari:11, avg_skor_7hr:3.4, kritis:1, perhatian:2},
+      {cluster:'C',  total_toko:5,  submit_hari:3,  avg_skor_7hr:2.7, kritis:2, perhatian:1},
+    ],
+    arco_ranking:[
+      {kode_arco:'ARCO-HARTONO',nama_arco:'HARTONO',wilayah:'SURABAYA',avg_skor:4.3,grade:'A'},
+      {kode_arco:'ARCO-ALI',nama_arco:'ALI',wilayah:'SURABAYA',avg_skor:3.9,grade:'B'},
+      {kode_arco:'ARCO-DEWI',nama_arco:'DEWI',wilayah:'SIDOARJO',avg_skor:3.6,grade:'B'},
+      {kode_arco:'ARCO-CIPTO',nama_arco:'CIPTO',wilayah:'SURABAYA',avg_skor:3.4,grade:'C'},
+      {kode_arco:'ARCO-NIA',nama_arco:'NIA',wilayah:'SBY/SDA',avg_skor:3.1,grade:'C'},
+    ],
+    tren_30_hari: tren,
+  };
+}
+</script>
+</body>
+</html>
